@@ -226,6 +226,10 @@ public final class EDFSchedulerThreadPool extends Scheduler {
     @Override
     public void schedule(final SchedulableTick task) {
         synchronized (this.scheduleLock) {
+            if (task.getScheduledStart() == TimeUtil.DEADLINE_NOT_SET) {
+                throw new IllegalStateException("Start must be set when scheduling");
+            }
+
             final ScheduledState state = new ScheduledState(task);
             if (!task.setState(state)) {
                 throw new IllegalStateException("Task " + task + " is already scheduled or cancelled");
@@ -284,17 +288,17 @@ public final class EDFSchedulerThreadPool extends Scheduler {
 
     @Override
     public boolean cancel(final SchedulableTick task) {
-        if (!(task.state instanceof ScheduledState state)) {
-            return false;
-        }
-
-        if (state.schedulerOwnedBy != this) {
+        if (!(task.getState() instanceof ScheduledState state)) {
             return false;
         }
 
         synchronized (this.scheduleLock) {
+            if (state.schedulerOwnedBy != this) {
+                return false;
+            }
             if (this.queued.remove(state)) {
                 // cancelled, and no runner owns it - so return
+                state.tryMarkCancelled();
                 return true;
             }
             if (state.awaitingLink != null) {
@@ -312,10 +316,16 @@ public final class EDFSchedulerThreadPool extends Scheduler {
                     runner.replaceTask(replace);
                 }
 
+                state.tryMarkCancelled();
                 return true;
             }
 
-            // could not find it in queue
+            if (state.ownedBy != null) {
+                // the runner is currently executing the tick, it will not reschedule the task if cancelled
+                return state.tryMarkCancelled();
+            }
+
+            // not queued, not awaiting, and not owned by a runner - the task has completed or is already cancelled
             return false;
         }
     }
