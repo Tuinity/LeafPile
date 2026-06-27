@@ -237,7 +237,7 @@ public class SWMRLong2ObjectHashTable<V> {
                 final V value = curr.getValueAcquire();
 
                 final Object otherValue = other.get(curr.key);
-                if (otherValue == null || (value != otherValue && value.equals(otherValue))) {
+                if (otherValue == null || (value != otherValue && !value.equals(otherValue))) {
                     return false;
                 }
             }
