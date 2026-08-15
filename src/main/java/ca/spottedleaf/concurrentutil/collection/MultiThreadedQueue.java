@@ -1368,6 +1368,7 @@ public class MultiThreadedQueue<E> implements Queue<E> {
 
             /* out of nodes to iterate */
             /* keep curr for remove() calls */
+            this.curr = this.next;
             this.next = null;
             this.nextElement = null;
         }
