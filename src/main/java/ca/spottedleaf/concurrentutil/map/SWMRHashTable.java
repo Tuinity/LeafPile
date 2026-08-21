@@ -260,7 +260,7 @@ public class SWMRHashTable<K, V> implements Map<K, V>, Iterable<Map.Entry<K, V>>
                 final V value = curr.getValueAcquire();
 
                 final Object otherValue = other.get(curr.key);
-                if (otherValue == null || (value != otherValue && value.equals(otherValue))) {
+                if (otherValue == null || (value != otherValue && !value.equals(otherValue))) {
                     return false;
                 }
             }
