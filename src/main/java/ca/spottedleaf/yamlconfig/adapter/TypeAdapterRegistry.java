@@ -3,7 +3,10 @@ package ca.spottedleaf.yamlconfig.adapter;
 import ca.spottedleaf.common.time.CalenderDuration;
 import ca.spottedleaf.yamlconfig.InitialiseHook;
 import ca.spottedleaf.yamlconfig.adapter.collection.CollectionTypeAdapter;
+import ca.spottedleaf.yamlconfig.adapter.collection.EnumMapTypeAdapter;
+import ca.spottedleaf.yamlconfig.adapter.collection.EnumSetTypeAdapter;
 import ca.spottedleaf.yamlconfig.adapter.collection.ListTypeAdapter;
+import ca.spottedleaf.yamlconfig.adapter.collection.MapTypeAdapter;
 import ca.spottedleaf.yamlconfig.adapter.collection.SetTypeAdapter;
 import ca.spottedleaf.yamlconfig.adapter.collection.SortedMapTypeAdapter;
 import ca.spottedleaf.yamlconfig.adapter.primitive.BooleanTypeAdapter;
@@ -24,7 +27,6 @@ import ca.spottedleaf.yamlconfig.annotation.Adaptable;
 import ca.spottedleaf.yamlconfig.annotation.Serializable;
 import ca.spottedleaf.yamlconfig.type.DefaultedValue;
 import ca.spottedleaf.yamlconfig.type.Duration;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -34,6 +36,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -68,9 +73,10 @@ public final class TypeAdapterRegistry {
 
         this.adapters.put(Set.class, SetTypeAdapter.INSTANCE);
         this.adapters.put(LinkedHashSet.class, SetTypeAdapter.INSTANCE);
+        this.adapters.put(EnumSet.class, EnumSetTypeAdapter.INSTANCE);
 
-        this.adapters.put(Map.class, SortedMapTypeAdapter.SORTED_CASE_INSENSITIVE);
-        this.adapters.put(LinkedHashMap.class, SortedMapTypeAdapter.SORTED_CASE_INSENSITIVE);
+        this.useSerializedMapOrder();
+        this.adapters.put(EnumMap.class, EnumMapTypeAdapter.INSTANCE);
 
         this.adapters.put(BigInteger.class, BigIntegerTypeAdapter.INSTANCE);
         this.adapters.put(BigDecimal.class, BigDecimalTypeAdapter.INSTANCE);
@@ -83,7 +89,65 @@ public final class TypeAdapterRegistry {
         this.adapters.put(Enum.class, StringEnumTypeAdapter.INSTANCE);
     }
 
-    public TypeAdapter<?, ?> putAdapter(final Class<?> clazz, final TypeAdapter<?, ?> adapter) {
+    /**
+     * Preserve the order of {@link Map} and {@link LinkedHashMap} when de-serializing or serializing.
+     * <p>
+     *     This is the default mode for handling key-value data.
+     * </p>
+     * @return {@code this}
+     */
+    public TypeAdapterRegistry useSerializedMapOrder() {
+        this.adapters.put(Map.class, MapTypeAdapter.INSTANCE);
+        this.adapters.put(LinkedHashMap.class, MapTypeAdapter.INSTANCE);
+        return this;
+    }
+
+    /**
+     * Sorts {@link Map} and {@link LinkedHashMap} types by their {@link String} keys.
+     * @param caseSensitive Whether to use case-insensitive ordering
+     * @return {@code this}
+     * @see String#compareTo(String)
+     * @see String#compareToIgnoreCase(String)
+     */
+    public TypeAdapterRegistry useSortedMapOrder(final boolean caseSensitive) {
+        final SortedMapTypeAdapter adapter = caseSensitive ? SortedMapTypeAdapter.SORTED_CASE_SENSITIVE : SortedMapTypeAdapter.SORTED_CASE_INSENSITIVE;
+
+        this.adapters.put(Map.class, adapter);
+        this.adapters.put(LinkedHashMap.class, adapter);
+
+        return this;
+    }
+
+    /**
+     * Sorts {@link Map} and {@link LinkedHashMap} types by their {@link String} keys using the specified
+     * comparator.
+     * @param comparator The specified comparator
+     * @return {@code this}
+     */
+    public TypeAdapterRegistry useSortedMapOrder(final Comparator<String> comparator) {
+        if (comparator == null) {
+            // use natural order
+            return this.useSortedMapOrder(true);
+        }
+        if (comparator == String.CASE_INSENSITIVE_ORDER) {
+            return this.useSortedMapOrder(false);
+        }
+
+        final SortedMapTypeAdapter adapter = new SortedMapTypeAdapter(comparator);
+
+        this.adapters.put(Map.class, adapter);
+        this.adapters.put(LinkedHashMap.class, adapter);
+
+        return this;
+    }
+
+    public TypeAdapterRegistry addAdapter(final Class<?> clazz, final TypeAdapter<?, ?> adapter) {
+        this.replaceAdapter(clazz, adapter);
+
+        return this;
+    }
+
+    public TypeAdapter<?, ?> replaceAdapter(final Class<?> clazz, final TypeAdapter<?, ?> adapter) {
         return this.adapters.put(clazz, adapter);
     }
 
@@ -136,7 +200,7 @@ public final class TypeAdapterRegistry {
     public <T> TypeAdapter<T, Map<Object, Object>> makeAdapter(final Class<? extends T> clazz, final Adaptable adaptable) throws Exception {
         final TypeAdapter<T, Map<Object, Object>> ret = new AutoTypeAdapter<>(this, clazz, adaptable);
 
-        this.putAdapter(clazz, ret);
+        this.replaceAdapter(clazz, ret);
 
         return ret;
     }
@@ -240,12 +304,12 @@ public final class TypeAdapterRegistry {
             final List<SerializableField> ret = new ArrayList<>();
             do {
                 for (final Field field : clazz.getDeclaredFields()) {
-                    field.setAccessible(true);
-
                     for (final Annotation annotation : field.getAnnotations()) {
                         if (!(annotation instanceof Serializable serializable)) {
                             continue;
                         }
+
+                        field.setAccessible(true);
 
                         // make sure we auto initialise generic types
                         if (field.getGenericType() instanceof ParameterizedType parameterizedType) {
@@ -269,6 +333,8 @@ public final class TypeAdapterRegistry {
                                 field, serializable.required(), serializable.comment(), adapter,
                                 serializable.serialize(), serializedKey
                         ));
+
+                        break;
                     }
                 }
             } while ((clazz = clazz.getSuperclass()) != Object.class);

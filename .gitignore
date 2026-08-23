@@ -36,3 +36,4 @@ hs_err_pid*
 
 # generated sources
 src/main/java/ca/spottedleaf/concurrentutil/map/concurrent/*
+src/test/java/ca/spottedleaf/yamlconfig/generated/*

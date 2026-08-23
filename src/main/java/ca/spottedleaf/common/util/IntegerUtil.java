@@ -1,5 +1,8 @@
 package ca.spottedleaf.common.util;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
 public final class IntegerUtil {
 
     public static final int HIGH_BIT_U32 = Integer.MIN_VALUE;
@@ -196,6 +199,36 @@ public final class IntegerUtil {
 
     public static int getIntMask(final int bits) {
         return bits == 0 ? 0 : -1 >>> (Integer.SIZE - bits);
+    }
+
+    /**
+     * Returns the long value of the number, without discarding any fractional portion of the number.
+     * @param x The number
+     * @return The integer portion of the number
+     * @throws ArithmeticException If the number cannot be represented as a {@code long}
+     */
+    public static long longValueExact(final Number x) {
+        if (x instanceof BigDecimal bigDecimal) {
+            return bigDecimal.longValueExact();
+        }
+        if (x instanceof BigInteger bigInteger) {
+            return bigInteger.longValueExact();
+        }
+        if (x instanceof Float || x instanceof Double) {
+            final double d = x.doubleValue();
+            if (!Double.isFinite(d)) {
+                throw new ArithmeticException("Value is Infinite or NaN: " + d);
+            }
+            if (d > (double)Long.MAX_VALUE || d < (double)Long.MIN_VALUE) {
+                throw new ArithmeticException("Value is not representable as a long: " + d);
+            }
+            final double frac = d - Math.floor(d);
+            if (frac != 0.0) {
+                throw new ArithmeticException("Value is not representable as a long: " + d);
+            }
+            return (long)d;
+        }
+        return x.longValue();
     }
 
     private IntegerUtil() {

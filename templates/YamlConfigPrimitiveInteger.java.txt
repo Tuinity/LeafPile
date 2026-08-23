@@ -1,0 +1,128 @@
+package ca.spottedleaf.yamlconfig.generated;
+
+import ca.spottedleaf.yamlconfig.annotation.Adaptable;
+import ca.spottedleaf.yamlconfig.annotation.Serializable;
+import ca.spottedleaf.yamlconfig.config.YamlConfig;
+import org.junit.jupiter.api.Test;
+import java.io.StringReader;
+import java.math.BigInteger;
+import java.util.Objects;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public final class ##NUMBER_UPPER##Test {
+
+    @Adaptable
+    public static final class TestConfig {
+
+        @Serializable
+        public ##NUMBER_LOWER## _value;
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            TestConfig that = (TestConfig) o;
+            return _value == that._value;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(_value);
+        }
+
+        @Override
+        public String toString() {
+            return "TestConfig{" +
+                    "_value=" + _value +
+                    '}';
+        }
+    }
+
+    private static final String TEMPLATE_CONFIG = """
+            _value: $replace$
+            """;
+
+    private static String createSerializedTemplate(final ##NUMBER_LOWER## value) {
+        return createSerializedTemplate(##NUMBER_UPPER##.toString(value));
+    }
+
+    private static String createSerializedTemplate(final String value) {
+        return TEMPLATE_CONFIG.replace("$replace$", value);
+    }
+
+    private static TestConfig createTemplateConfig(final ##NUMBER_LOWER## value) {
+        final TestConfig ret = new TestConfig();
+
+        ret._value = value;
+
+        return ret;
+    }
+
+    private static void testDeserialization(final String str, final TestConfig expect) throws Exception {
+        final YamlConfig<TestConfig> config = new YamlConfig<>(TestConfig.class, new TestConfig());
+
+        config.load(new StringReader(str));
+
+        assertEquals(expect, config.config);
+    }
+
+    @Test
+    public void testBasicConfig() throws Exception {
+        final ##NUMBER_LOWER## b = (##NUMBER_LOWER##)-1;
+        testDeserialization(createSerializedTemplate(b), createTemplateConfig(b));
+        testDeserialization(createSerializedTemplate("+1.0"), createTemplateConfig((##NUMBER_LOWER##)1));
+    }
+
+    @Test
+    public void testFloatingError() throws Exception {
+        assertDoesNotThrow(() -> {
+            testDeserialization(createSerializedTemplate("1.0"), createTemplateConfig((##NUMBER_LOWER##)1));
+            testDeserialization(createSerializedTemplate("-0.0"), createTemplateConfig((##NUMBER_LOWER##)0));
+        });
+        assertThrows(Exception.class, () -> {
+            testDeserialization(createSerializedTemplate("1.00000000000000000000000000000000000000000000000000001"), createTemplateConfig((##NUMBER_LOWER##)1));
+        });
+    }
+
+    @Test
+    public void testRangeError() throws Exception {
+        assertThrows(Exception.class, () -> {
+            testDeserialization(
+                    createSerializedTemplate(new BigInteger(##NUMBER_UPPER##.toString(##NUMBER_UPPER##.MIN_VALUE)).subtract(BigInteger.ONE).toString()),
+                    createTemplateConfig((##NUMBER_LOWER##)(##NUMBER_UPPER##.MIN_VALUE - 1))
+            );
+        });
+        assertThrows(Exception.class, () -> {
+            testDeserialization(
+                    createSerializedTemplate(new BigInteger(##NUMBER_UPPER##.toString(##NUMBER_UPPER##.MAX_VALUE)).add(BigInteger.ONE).toString()),
+                    createTemplateConfig((##NUMBER_LOWER##)(##NUMBER_UPPER##.MAX_VALUE + 1))
+            );
+        });
+    }
+
+    @Test
+    public void testStringDecode() throws Exception {
+        final ##NUMBER_LOWER## b1 = (##NUMBER_LOWER##)-1;
+        testDeserialization(createSerializedTemplate("\"" + ##NUMBER_UPPER##.toString(b1) + "\""), createTemplateConfig(b1));
+        testDeserialization(createSerializedTemplate("\"" + "+1.0" + "\""), createTemplateConfig((##NUMBER_LOWER##)1));
+
+        testDeserialization(createSerializedTemplate("\"-0.0\""), createTemplateConfig((##NUMBER_LOWER##)0));
+    }
+
+    private static void testSerialization(final TestConfig expect) throws Exception {
+        YamlConfig<TestConfig> config = new YamlConfig<>(TestConfig.class, expect);
+
+        final String saved = config.saveToString();
+
+        config = new YamlConfig<>(TestConfig.class, new TestConfig());
+
+        config.load(new StringReader(saved));
+
+        assertEquals(expect, config.config);
+    }
+
+    @Test
+    public void testSerialization() throws Exception {
+        testSerialization(createTemplateConfig((##NUMBER_LOWER##)-1));
+    }
+}

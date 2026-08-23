@@ -10,7 +10,7 @@ public final class DefaultedTypeAdapter extends TypeAdapter<DefaultedValue<?>, O
 
     public static final DefaultedTypeAdapter INSTANCE = new DefaultedTypeAdapter();
 
-    private static final String DEFAULT_STRING = "default";
+    public static final String DEFAULT_STRING = "default";
 
     @Override
     public DefaultedValue<?> deserialize(final TypeAdapterRegistry registry, final Object input, final Type type) {

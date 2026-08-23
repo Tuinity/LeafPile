@@ -2,6 +2,7 @@ package ca.spottedleaf.yamlconfig.adapter.type;
 
 import ca.spottedleaf.common.time.CalenderDuration;
 import ca.spottedleaf.yamlconfig.adapter.generic.StringFormTypeAdapter;
+import java.time.temporal.ChronoUnit;
 
 public final class CalenderDurationTypeAdapter extends StringFormTypeAdapter<CalenderDuration> {
 
@@ -14,6 +15,7 @@ public final class CalenderDurationTypeAdapter extends StringFormTypeAdapter<Cal
 
     @Override
     public String toString(final CalenderDuration value) {
-        return value.getParsedForm();
+        final String parsedForm = value.getParsedForm();
+        return parsedForm == null ? value.toPrettyValue(ChronoUnit.SECONDS) : parsedForm;
     }
 }

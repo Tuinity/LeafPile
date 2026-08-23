@@ -2,6 +2,8 @@ package ca.spottedleaf.yamlconfig.adapter.primitive;
 
 import ca.spottedleaf.yamlconfig.adapter.TypeAdapter;
 import ca.spottedleaf.yamlconfig.adapter.TypeAdapterRegistry;
+import ca.spottedleaf.yamlconfig.config.YamlConfig;
+
 import java.lang.reflect.Type;
 
 public final class StringTypeAdapter extends TypeAdapter<String, String> {
@@ -14,7 +16,11 @@ public final class StringTypeAdapter extends TypeAdapter<String, String> {
             return String.valueOf(bool.booleanValue());
         }
         if (input instanceof Number number) {
-            return number.toString();
+            // note: always expect ParsedNumber
+            throw new IllegalArgumentException("Unexpected number");
+        }
+        if (input instanceof YamlConfig.ParsedNumber parsedNumber) {
+            return parsedNumber.original();
         }
         if (input instanceof String string) {
             return string;

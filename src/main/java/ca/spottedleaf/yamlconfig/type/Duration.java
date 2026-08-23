@@ -73,4 +73,14 @@ public final class Duration {
     public String toString() {
         return this.string;
     }
+
+    @Override
+    public int hashCode() {
+        return Long.hashCode(this.timeNS);
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        return obj instanceof Duration duration && this.timeNS == duration.timeNS;
+    }
 }

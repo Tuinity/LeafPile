@@ -513,4 +513,14 @@ public final class CalenderDuration {
 
         return ret.toString();
     }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(this.values);
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        return obj instanceof CalenderDuration calenderDuration && Arrays.equals(this.values, calenderDuration.values);
+    }
 }

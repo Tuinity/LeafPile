@@ -106,7 +106,7 @@ public final class GenerateSources {
         System.out.println("Generated " + dst + " from " + src);
     }
 
-    public static void main(final String[] args) throws Exception {
+    private static void doConcurrentHashTable(final String[] args) throws Exception {
         final Path src = Path.of(args[0], "ConcurrentChainedHashTable.java.txt");
 
         final List<ClassType> types = Arrays.asList(
@@ -121,6 +121,88 @@ public final class GenerateSources {
                 doMap(args[1], key.clazz, value.clazz, key.isReferenceEquality, value.isReferenceEquality, src);
             }
         }
+    }
+
+    private static void doYamlConfigTestsInt(final String[] args) throws Exception {
+        final Path src = Path.of(args[0], "YamlConfigPrimitiveInteger.java.txt");
+        final String dstDir = args[1];
+
+        final List<Class<?>> intTypes = Arrays.asList(
+                byte.class,
+                short.class,
+                int.class,
+                long.class
+        );
+
+        for (final Class<?> clazz : intTypes) {
+            final String lowerName = clazz.getSimpleName();
+            final String upperName = BOX_MAPPING.get(clazz).getSimpleName();
+
+            final LinkedHashMap<String, Preprocessor.Macro> macros = new LinkedHashMap<>();
+
+            defMacro("NUMBER_LOWER", new ArrayList<>(), lowerName, macros);
+            defMacro("NUMBER_UPPER", new ArrayList<>(), upperName, macros);
+
+            final Path dst = Path.of(
+                    dstDir, "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
+                    upperName + "Test.java"
+            );
+
+            Files.deleteIfExists(dst);
+
+            if (dst.getParent() != null) {
+                Files.createDirectories(dst.getParent());
+            }
+
+            Files.write(
+                    dst, Preprocessor.parse(src, macros), StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE
+            );
+
+            System.out.println("Generated " + dst + " from " + src);
+        }
+    }
+
+    private static void doYamlConfigTestsFloat(final String[] args) throws Exception {
+        final Path src = Path.of(args[0], "YamlConfigPrimitiveFloat.java.txt");
+        final String dstDir = args[1];
+
+        final List<Class<?>> intTypes = Arrays.asList(
+                float.class,
+                double.class
+        );
+
+        for (final Class<?> clazz : intTypes) {
+            final String lowerName = clazz.getSimpleName();
+            final String upperName = BOX_MAPPING.get(clazz).getSimpleName();
+
+            final LinkedHashMap<String, Preprocessor.Macro> macros = new LinkedHashMap<>();
+
+            defMacro("NUMBER_LOWER", new ArrayList<>(), lowerName, macros);
+            defMacro("NUMBER_UPPER", new ArrayList<>(), upperName, macros);
+
+            final Path dst = Path.of(
+                    dstDir, "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
+                    upperName + "Test.java"
+            );
+
+            Files.deleteIfExists(dst);
+
+            if (dst.getParent() != null) {
+                Files.createDirectories(dst.getParent());
+            }
+
+            Files.write(
+                    dst, Preprocessor.parse(src, macros), StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE
+            );
+
+            System.out.println("Generated " + dst + " from " + src);
+        }
+    }
+
+    public static void main(final String[] args) throws Exception {
+        doConcurrentHashTable(args);
+        doYamlConfigTestsInt(args);
+        doYamlConfigTestsFloat(args);
     }
 
     private static final record ClassType(Class<?> clazz, boolean isReferenceEquality) {}
