@@ -404,10 +404,10 @@ public final class JavaListType extends ListType {
     }
 
     @Override
-    public ListType getList(final int index, final ListType dfl) {
+    public JavaListType getList(final int index, final ListType dfl) {
         final Object value = this.list.get(index);
 
-        return value instanceof ArrayList list ? new JavaListType(list) : dfl;
+        return value instanceof ArrayList list ? new JavaListType(list) : (JavaListType)dfl;
     }
 
     @Override
@@ -418,15 +418,15 @@ public final class JavaListType extends ListType {
     }
 
     @Override
-    public MapType getMap(final int index) {
+    public JavaMapType getMap(final int index) {
         return this.getMap(index, null);
     }
 
     @Override
-    public MapType getMap(final int index, final MapType dfl) {
+    public JavaMapType getMap(final int index, final MapType dfl) {
         final Object value = this.list.get(index);
 
-        return value instanceof LinkedHashMap map ? new JavaMapType(map) : dfl;
+        return value instanceof LinkedHashMap map ? new JavaMapType(map) : (JavaMapType)dfl;
     }
 
     @Override

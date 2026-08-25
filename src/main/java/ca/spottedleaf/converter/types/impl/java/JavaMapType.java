@@ -532,14 +532,40 @@ public final class JavaMapType extends MapType {
     }
 
     @Override
-    public ListType getListUnchecked(final String key) {
+    public JavaListType getListUnchecked(final String key) {
         return this.getListUnchecked(key, null);
     }
 
     @Override
-    public ListType getListUnchecked(final String key, final ListType dfl) {
+    public JavaListType getListUnchecked(final String key, final ListType dfl) {
         final Object value = this.map.get(key);
-        return value instanceof ArrayList list ? new JavaListType(list) : dfl;
+        return value instanceof ArrayList list ? new JavaListType(list) : (JavaListType)dfl;
+    }
+
+    @Override
+    public JavaListType getList(final String key, final ObjectType type) {
+        return this.getList(key, type, null);
+    }
+
+    @Override
+    public JavaListType getOrCreateList(final String key, final ObjectType type) {
+        JavaListType ret = this.getList(key, type);
+        if (ret == null) {
+            this.setList(key, ret = this.createEmptyList());
+        }
+
+        return ret;
+    }
+
+    @Override
+    public JavaListType getList(final String key, final ObjectType type, final ListType dfl) {
+        final JavaListType ret = this.getListUnchecked(key, null);
+        final ObjectType retType;
+        if (ret != null && ((retType = ret.getUniformType()) == type || retType == ObjectType.UNDEFINED || retType == ObjectType.NONE)) {
+            return ret;
+        } else {
+            return (JavaListType)dfl;
+        }
     }
 
     @Override
@@ -551,14 +577,24 @@ public final class JavaMapType extends MapType {
     }
 
     @Override
-    public MapType getMap(final String key) {
+    public JavaMapType getMap(final String key) {
         return this.getMap(key, null);
     }
 
     @Override
-    public MapType getMap(final String key, final MapType dfl) {
+    public JavaMapType getOrCreateMap(final String key) {
+        JavaMapType ret = this.getMap(key);
+        if (ret == null) {
+            this.setMap(key, ret = this.createEmptyMap());
+        }
+
+        return ret;
+    }
+
+    @Override
+    public JavaMapType getMap(final String key, final MapType dfl) {
         final Object value = this.map.get(key);
-        return value instanceof LinkedHashMap map ? new JavaMapType(map) : dfl;
+        return value instanceof LinkedHashMap map ? new JavaMapType(map) : (JavaMapType)dfl;
     }
 
     @Override

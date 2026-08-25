@@ -36,60 +36,7 @@ public abstract class ListType {
 
     public abstract Object getGeneric(final int index);
 
-    public void setGeneric(final int index, final Object to) {
-        if (to instanceof Number) {
-            if (to instanceof Byte b) {
-                this.setByte(index, b.byteValue());
-                return;
-            } else if (to instanceof Short s) {
-                this.setShort(index, s.shortValue());
-                return;
-            } else if (to instanceof Integer i) {
-                this.setInt(index, i.intValue());
-                return;
-            } else if (to instanceof Long l) {
-                this.setLong(index, l.longValue());
-                return;
-            } else if (to instanceof Float f) {
-                this.setFloat(index, f.floatValue());
-                return;
-            } else if (to instanceof Double d) {
-                this.setDouble(index, d.doubleValue());
-                return;
-            } else if (to instanceof BigInteger i) {
-                this.setBigInteger(index, i);
-                return;
-            } else if (to instanceof BigDecimal d) {
-                this.setBigDecimal(index, d);
-                return;
-            } // else fall through to throw
-        } else if (to instanceof MapType m) {
-            this.setMap(index, m);
-            return;
-        } else if (to instanceof ListType l) {
-            this.setList(index, l);
-            return;
-        } else if (to instanceof String s) {
-            this.setString(index, s);
-            return;
-        } else if (to.getClass().isArray()) {
-            if (to instanceof byte[] bytes) {
-                this.setBytes(index, bytes);
-                return;
-            } else if (to instanceof short[] shorts) {
-                this.setShorts(index, shorts);
-                return;
-            } else if (to instanceof int[] ints) {
-                this.setInts(index, ints);
-                return;
-            } else if (to instanceof long[] longs) {
-                this.setLongs(index, longs);
-                return;
-            } // else fall through to throw
-        }
-
-        throw new IllegalArgumentException("Object " + to + " is not a valid type!");
-    }
+    public abstract void setGeneric(final int index, final Object to);
 
     // types here are strict. if the type on get does not match the underlying type, will throw - except for the
     // default parameter methods, in such cases the default value will be returned.
@@ -200,60 +147,7 @@ public abstract class ListType {
 
     public abstract void setString(final int index, final String to);
 
-    public void addGeneric(final Object value) {
-        if (value instanceof Number) {
-            if (value instanceof Byte b) {
-                this.addByte(b.byteValue());
-                return;
-            } else if (value instanceof Short s) {
-                this.addShort(s.shortValue());
-                return;
-            } else if (value instanceof Integer i) {
-                this.addInt(i.intValue());
-                return;
-            } else if (value instanceof Long l) {
-                this.addLong(l.longValue());
-                return;
-            } else if (value instanceof Float f) {
-                this.addFloat(f.floatValue());
-                return;
-            } else if (value instanceof Double d) {
-                this.addDouble(d.doubleValue());
-                return;
-            } else if (value instanceof BigInteger i) {
-                this.addBigInteger(i);
-                return;
-            } else if (value instanceof BigDecimal d) {
-                this.addBigDecimal(d);
-                return;
-            } // else fall through to throw
-        } else if (value instanceof MapType m) {
-            this.addMap(m);
-            return;
-        } else if (value instanceof ListType l) {
-            this.addList(l);
-            return;
-        } else if (value instanceof String s) {
-            this.addString(s);
-            return;
-        } else if (value.getClass().isArray()) {
-            if (value instanceof byte[] bytes) {
-                this.addByteArray(bytes);
-                return;
-            } else if (value instanceof short[] shorts) {
-                this.addShortArray(shorts);
-                return;
-            } else if (value instanceof int[] ints) {
-                this.addIntArray(ints);
-                return;
-            } else if (value instanceof long[] longs) {
-                this.addLongArray(longs);
-                return;
-            } // else fall through to throw
-        }
-
-        throw new IllegalArgumentException("Object " + value + " is not a valid type!");
-    }
+    public abstract void addGeneric(final Object value);
 
     public abstract void addBigInteger(final BigInteger i);
 
