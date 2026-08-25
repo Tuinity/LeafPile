@@ -299,8 +299,6 @@ public final class JavaMapType extends MapType {
 
         if (value instanceof Boolean bool) {
             return bool.booleanValue();
-        } else if (value instanceof Number number) {
-            return number.byteValue() != 0;
         } else {
             return dfl;
         }
