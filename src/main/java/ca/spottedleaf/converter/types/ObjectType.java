@@ -5,6 +5,7 @@ import java.math.BigInteger;
 
 public enum ObjectType {
     NONE(null),
+    BOOLEAN(Boolean.class),
     BYTE(Byte.class),
     SHORT(Short.class),
     INT(Integer.class),
@@ -41,7 +42,9 @@ public enum ObjectType {
     }
 
     public static ObjectType getType(final Object object) {
-        if (object instanceof Number) {
+        if (object instanceof Boolean) {
+            return BOOLEAN;
+        } else if (object instanceof Number) {
             if (object instanceof Byte) {
                 return BYTE;
             } else if (object instanceof Short) {

@@ -18,6 +18,10 @@ public abstract class MapType {
     @Override
     public abstract String toString();
 
+    public abstract ListType createEmptyList();
+
+    public abstract MapType createEmptyMap();
+
     public abstract int size();
 
     public abstract boolean isEmpty();
@@ -153,7 +157,7 @@ public abstract class MapType {
     public ListType getOrCreateList(final String key, final ObjectType type) {
         ListType ret = this.getList(key, type);
         if (ret == null) {
-            this.setList(key, ret = this.getTypeUtil().createEmptyList());
+            this.setList(key, ret = this.createEmptyList());
         }
 
         return ret;
@@ -176,7 +180,7 @@ public abstract class MapType {
     public MapType getOrCreateMap(final String key) {
         MapType ret = this.getMap(key);
         if (ret == null) {
-            this.setMap(key, ret = this.getTypeUtil().createEmptyMap());
+            this.setMap(key, ret = this.createEmptyMap());
         }
 
         return ret;

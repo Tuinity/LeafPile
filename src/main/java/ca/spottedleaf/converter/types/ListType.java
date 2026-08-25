@@ -16,6 +16,10 @@ public abstract class ListType {
     @Override
     public abstract String toString();
 
+    public abstract ListType createEmptyList();
+
+    public abstract MapType createEmptyMap();
+
     // Provides a deep copy of this list
     public abstract ListType copy();
 

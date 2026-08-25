@@ -61,6 +61,16 @@ public final class JavaMapType extends MapType {
     }
 
     @Override
+    public JavaListType createEmptyList() {
+        return new JavaListType();
+    }
+
+    @Override
+    public JavaMapType createEmptyMap() {
+        return new JavaMapType();
+    }
+
+    @Override
     public TypeUtil<?> getTypeUtil() {
         return JavaTypeUtil.INSTANCE;
     }

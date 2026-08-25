@@ -113,7 +113,9 @@ public final class JavaTypeUtil extends TypeUtil<Object> {
 
     @Override
     public ObjectType getTypeBase(final Object value) {
-        if (value instanceof Number) {
+        if (value instanceof Boolean) {
+            return ObjectType.BOOLEAN;
+        } else if (value instanceof Number) {
             if (value instanceof Byte) {
                 return ObjectType.BYTE;
             } else if (value instanceof Short) {
