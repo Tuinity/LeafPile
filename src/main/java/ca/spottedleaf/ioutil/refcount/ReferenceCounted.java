@@ -24,7 +24,11 @@ public abstract class ReferenceCounted {
 
     private void addReference(final String key) {
         if (!this.references.add(key)) {
-            throw new IllegalStateException("Duplicate reference " + key);
+            try {
+                throw new IllegalStateException("Duplicate reference " + key);
+            } finally {
+                this.decReferenceCountNoDebug();
+            }
         }
     }
 
@@ -56,6 +60,10 @@ public abstract class ReferenceCounted {
             this.removeReference(key);
         }
 
+        return this.decReferenceCountNoDebug();
+    }
+
+    private boolean decReferenceCountNoDebug() {
         final long dec = (long)REFERENCE_COUNT_HANDLE.getAndAdd(this, -1L);
         if (dec <= 0L) {
             throw new IllegalStateException("Negative reference counter");

@@ -41,7 +41,7 @@ public final class BufferedBufferInputStream extends AbstractBufferInputStream {
             throw new EOFException();
         }
         final long buffered = super.availableLong();
-        final long inWrap = this.wrap instanceof AbstractBufferInputStream wrapBuffer ? wrapBuffer.availableLong() : (long)wrap.available();
+        final long inWrap = this.wrap instanceof AbstractBufferInputStream wrapBuffer ? wrapBuffer.availableLong() : (long)this.wrap.available();
 
         final long ret = buffered + inWrap;
         if (ret < 0L) {

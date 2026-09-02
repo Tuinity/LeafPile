@@ -26,7 +26,7 @@ public final class BufferedBufferOutputStream extends AbstractBufferOutputStream
         final long read = this.writeBuffer.getReaderIndex();
         final long write = this.writeBuffer.getWriterIndex();
 
-        final int toWrite = (int)(read - write);
+        final int toWrite = (int)(write - read);
         if (toWrite == 0) {
             this.writeBuffer.clear();
             return true;

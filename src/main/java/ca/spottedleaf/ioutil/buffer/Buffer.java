@@ -8,6 +8,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Objects;
@@ -311,15 +312,15 @@ public final class Buffer extends ReferenceCounted {
         this.readerIndex = readerIdx - by;
     }
 
-    private void tryAllocate(final Memory currMemory, final long newWriterIndex) {
+    private void tryAllocate(final Memory currMemory, final long minCapacity) {
         // try to allocate more
-        long nextCap = Math.max(2L, newWriterIndex);
+        long nextCap = Math.max(2L, minCapacity);
         nextCap += Math.max(1L, (nextCap >>> 1)); // allocate 1.5x current size
         if (nextCap < 0L) {
             nextCap = Long.MAX_VALUE;
         }
         nextCap = Math.min(this.maxCapacity, nextCap);
-        if (newWriterIndex > nextCap) {
+        if (minCapacity > nextCap) {
             throw new IllegalStateException("Reached maximum capacity: max " + this.maxCapacity);
         }
 
@@ -336,14 +337,22 @@ public final class Buffer extends ReferenceCounted {
 
         final long oldWriterIndex = this.writerIndex;
         final long newWriterIndex = oldWriterIndex + by;
-        if (newWriterIndex > this.segment.byteSize()) {
-            this.tryAllocate(this.memory, newWriterIndex);
-        } else if (newWriterIndex < 0) {
+
+        if (newWriterIndex < 0L) {
             throw new OutOfMemoryError("Max size");
+        } else if (newWriterIndex <= this.segment.byteSize()) {
+            this.writerIndex = newWriterIndex;
+
+            return oldWriterIndex;
         }
+        // newWriterIndex >= 0 && newWriterIndex > this.segment.byteSize()
 
+        return this.advanceWriteAllocate(oldWriterIndex, newWriterIndex);
+    }
+
+    private long advanceWriteAllocate(final long oldWriterIndex, final long newWriterIndex) {
+        this.tryAllocate(this.memory, newWriterIndex);
         this.writerIndex = newWriterIndex;
-
         return oldWriterIndex;
     }
 
@@ -889,11 +898,11 @@ public final class Buffer extends ReferenceCounted {
     public int readUnsignedVarInt() {
         final MemorySegment segment = this.segment;
         final long readerIdx = this.readerIndex;
-        if ((readerIdx + 8L) >= segment.byteSize()) {
+        if (segment.byteSize() - readerIdx < 8L) {
             return this.readUnsignedVarIntFallback();
         }
         // note: must be little endian read
-        long value = this.segment.get(LONG_LE, readerIdx);
+        final long value = segment.get(LONG_LE, readerIdx);
 
         final long contBits = (value & VARINT_CONT_BITS) ^ VARINT_CONT_BITS;
         if (contBits == 0L) {
@@ -943,11 +952,11 @@ public final class Buffer extends ReferenceCounted {
 
     public int readUnsignedVarInt(final long index) {
         final MemorySegment segment = this.segment;
-        if ((index + 8L) >= segment.byteSize()) {
+        if (segment.byteSize() - index < 8L) {
             return this.readUnsignedVarIntFallback(index);
         }
         // note: must be little endian read
-        long value = this.segment.get(LONG_LE, index);
+        final long value = segment.get(LONG_LE, index);
 
         final long contBits = (value & VARINT_CONT_BITS) ^ VARINT_CONT_BITS;
         if (contBits == 0L) {
@@ -1048,6 +1057,39 @@ public final class Buffer extends ReferenceCounted {
 
             if (r == 0L) {
                 // may happen in the case of non-blocking sockets, but we should throw instead of spinning
+                throw new EOFException();
+            }
+        }
+    }
+
+    public long readIntoFilePos(final FileChannel channel, final long filePos) throws IOException {
+        final ByteBuffer asBuffer = this.getBufferAsRead();
+
+        final long r = (long)channel.write(asBuffer, filePos);
+        this.readerIndex += Math.max(0L, r);
+        return r;
+    }
+
+    public void readIntoFilePos(final FileChannel channel, final long filePos, final long nBytes) throws IOException {
+        final long read = this.readerIndex;
+        final long write = this.writerIndex;
+        if ((write - read) < nBytes) {
+            // not enough readable bytes
+            throw ioobe(read, write, nBytes);
+        }
+
+        final ByteBuffer asBuffer = this.getMemoryAsBuffer();
+        asBuffer.clear();
+        asBuffer.position(castIndexToInt(read));
+        asBuffer.limit(castIndexToInt(read + nBytes));
+
+        long bytesRead = 0L;
+        while (bytesRead < nBytes) {
+            final long r = Math.max((long)channel.write(asBuffer, filePos + bytesRead), 0L);
+            bytesRead += r;
+            this.readerIndex += r;
+
+            if (r == 0L) {
                 throw new EOFException();
             }
         }
@@ -1639,8 +1681,9 @@ public final class Buffer extends ReferenceCounted {
      */
 
     public long writeUnsignedVarInt(final int value) {
+        final MemorySegment segment = this.segment;
         final long writerIdx = this.writerIndex;
-        if (this.maxCapacity - writerIdx < 8L) {
+        if ((segment.byteSize() - writerIdx) < 8L) {
             return this.writeUnsignedVarIntFallback(value);
         }
         // value | 1 ensures 0 <= numberOfLeadingZeros <= SIZE - 1
@@ -1657,9 +1700,9 @@ public final class Buffer extends ReferenceCounted {
         final long written = bytes + 1L;
         final long readMask = -(1L << (written << 3));
 
-        final long idx = this.advanceWrite(written);
+        this.writerIndex += written;
 
-        this.segment.set(LONG_LE, idx, write | (readMask & this.segment.get(LONG_LE, idx)));
+        segment.set(LONG_LE, writerIdx, write | (readMask & segment.get(LONG_LE, writerIdx)));
         return written;
     }
 
@@ -1675,8 +1718,9 @@ public final class Buffer extends ReferenceCounted {
         return ret;
     }
 
-    public long writeUnsignedVarInt(final long index, int value) {
-        if ((this.segment.byteSize() - index) < 8L) {
+    public long writeUnsignedVarInt(final long index, final int value) {
+        final MemorySegment segment = this.segment;
+        if ((segment.byteSize() - index) < 8L) {
             return this.writeUnsignedVarIntFallback(index, value);
         }
         // value | 1 ensures 0 <= numberOfLeadingZeros <= SIZE - 1
@@ -1693,7 +1737,7 @@ public final class Buffer extends ReferenceCounted {
         final long written = bytes + 1L;
         final long readMask = -(1L << (written << 3));
 
-        this.segment.set(LONG_LE, index, write | (readMask & this.segment.get(LONG_LE, index)));
+        segment.set(LONG_LE, index, write | (readMask & segment.get(LONG_LE, index)));
         return written;
     }
 
@@ -1761,6 +1805,34 @@ public final class Buffer extends ReferenceCounted {
         }
     }
 
+    public long writeFromFilePos(final FileChannel channel, final long filePos) throws IOException {
+        this.ensureImmediatelyWritable(1L);
+
+        final ByteBuffer asBuffer = this.getBufferAsWriter();
+
+        final long r = (long)channel.read(asBuffer, filePos);
+        this.writerIndex += Math.max(0L, r);
+        return r;
+    }
+
+    public void writeFromFilePos(final FileChannel channel, final long filePos, final long nBytes) throws IOException {
+        this.ensureImmediatelyWritable(nBytes);
+
+        final ByteBuffer asBuffer = this.getBufferAsWriter();
+        asBuffer.limit(castIndexToInt(this.writerIndex + nBytes));
+
+        long bytesWritten = 0L;
+        while (bytesWritten < nBytes) {
+            final long r = Math.max((long)channel.read(asBuffer, filePos + bytesWritten), 0L); // treat -1 and 0 the same
+            bytesWritten += r;
+            this.writerIndex += r;
+
+            if (r == 0L) {
+                throw new EOFException();
+            }
+        }
+    }
+
     public long writeFromBuffer(final Buffer src) {
         return src.readIntoBuffer(this);
     }
@@ -1788,5 +1860,10 @@ public final class Buffer extends ReferenceCounted {
         Objects.checkFromIndexSize(srcOff, nBytes, src.byteSize());
         final long writeIndex = this.advanceWrite(nBytes);
         MemorySegment.copy(src, srcOff, this.segment, writeIndex, nBytes);
+    }
+
+    public static void copy(final Buffer src, final long srcPos, final Buffer dst, final long dstPos,
+                            final long nBytes) {
+        MemorySegment.copy(src.segment, srcPos, dst.segment, dstPos, nBytes);
     }
 }

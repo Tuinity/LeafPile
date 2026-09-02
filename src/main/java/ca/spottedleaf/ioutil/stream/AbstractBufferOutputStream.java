@@ -7,7 +7,7 @@ import java.io.OutputStream;
 import java.io.UTFDataFormatException;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Objects;
 
@@ -31,8 +31,8 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
 
     // increases the allocated space in the write buffer by the specified number of bytes if possible
     public final void tryEnsureImmediatelyWritable(final long nBytes) {
-        if (this.writeBuffer.getImmediatelyWritableBytes() < nBytes && this.writeBuffer.getWritableBytes() >= nBytes) {
-            this.writeBuffer.ensureImmediatelyWritable(nBytes);
+        if (this.writeBuffer.getImmediatelyWritableBytes() < nBytes) {
+            this.writeBuffer.ensureImmediatelyWritable(Math.min(nBytes, this.writeBuffer.getWritableBytes()));
         }
     }
 
@@ -698,6 +698,27 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
 
             final long toWrite = Math.min((nBytes - bytesWritten), this.writeBuffer.getWritableBytes());
             this.writeBuffer.writeFromChannel(channel, toWrite);
+            bytesWritten += toWrite;
+        }
+    }
+
+    public final long writeFilePos(final FileChannel channel, final long channelPos) throws IOException {
+        if (!this.tryEnsure(1L)) {
+            return 0L;
+        }
+
+        return this.writeBuffer.writeFromFilePos(channel, channelPos);
+    }
+
+    public final void writeFilePos(final FileChannel channel, final long channelPos, final long nBytes) throws IOException {
+        this.tryEnsureImmediatelyWritable(nBytes);
+
+        long bytesWritten = 0L;
+        while (bytesWritten < nBytes) {
+            this.ensureWritable(1L);
+
+            final long toWrite = Math.min((nBytes - bytesWritten), this.writeBuffer.getWritableBytes());
+            this.writeBuffer.writeFromFilePos(channel, channelPos + bytesWritten, toWrite);
             bytesWritten += toWrite;
         }
     }

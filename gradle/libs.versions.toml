@@ -3,8 +3,8 @@ it-unimi-dsi-fastutil = "8.5.19"
 org-slf4j-slf4j-api = "2.0.18"
 net-java-dev-jna = "5.19.1"
 at-yawk-lz4-lz4-java = "1.11.2"
-com-github-luben-zstd-jni = "1.5.7-15"
-org-yaml-snakeyaml = "2.6"
+com-github-luben-zstd-jni = "1.5.7-16"
+org-yaml-snakeyaml = "2.7"
 org-junit-jupiter-junit-jupiter = "6.1.3"
 
 [libraries]

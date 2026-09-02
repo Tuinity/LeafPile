@@ -35,9 +35,37 @@ public final class FlatBitsetUtil {
         return bitSet.toLongArray();
     }
 
-    public static boolean get(final long[] bitset, final int index) {
+    public static boolean getChecked(final long[] bitset, final int index) {
         final int arrIdx = index >> LOG2_LONG;
         return arrIdx >= 0 && arrIdx < bitset.length && (bitset[arrIdx] & (1L << index)) != 0L;
+    }
+
+    public static boolean getUnchecked(final long[] bitset, final int index) {
+        return (bitset[index >> LOG2_LONG] & (1L << index)) != 0L;
+    }
+
+    public static int sizeBitset(final int size) {
+        return (size + (Long.SIZE - 1)) >>> LOG2_LONG;
+    }
+
+    public static void set(final long[] bitset, final int index) {
+        bitset[index >> LOG2_LONG] |= (1L << index);
+    }
+
+    public static void clear(final long[] bitset, final int index) {
+        bitset[index >> LOG2_LONG] &= ~(1L << index);
+    }
+
+    public static void or(final long[] bitset, final int index, final boolean value) {
+        bitset[index >> LOG2_LONG] |= ((value ? 1L : 0L) << index);
+    }
+
+    public static void xor(final long[] bitset, final int index, final boolean value) {
+        bitset[index >> LOG2_LONG] ^= ((value ? 1L : 0L) << index);
+    }
+
+    public static void and(final long[] bitset, final int index, final boolean value) {
+        bitset[index >> LOG2_LONG] &= ((value ? 1L : 0L) << index);
     }
 
     // from inclusive

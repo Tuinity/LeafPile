@@ -9,7 +9,12 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -2609,47 +2614,120 @@ public final class BufferTest {
         assertEquals(0L, buffer.getReadableBytes());
     }
 
+    private void testChannel(final boolean useNBytes) throws IOException {
+        try (final DummyChannel channel = new DummyChannel(ByteBuffer.allocateDirect(16))) {
+            final Buffer buffer = new Buffer(false, "test", MemoryAllocator.UnPooledHeap.INSTANCE, 32L, 32L);
+
+            // test empty
+
+            assertEquals(0L, buffer.writeFromChannel(channel));
+            assertEquals(0L, buffer.readIntoChannel(channel));
+            assertEquals(0L, buffer.writeFromFilePos(channel, 0L));
+            assertEquals(0L, buffer.readIntoFilePos(channel, 0L));
+            assertEquals(0L, channel.position());
+            assertEquals(0L, channel.size());
+
+            assertThrows(Exception.class, () -> {
+                buffer.writeFromChannel(channel, 1L);
+            });
+            assertThrows(Exception.class, () -> {
+                buffer.readIntoChannel(channel, 1L);
+            });
+
+            assertThrows(Exception.class, () -> {
+                buffer.writeFromFilePos(channel, 0L, 1L);
+            });
+            assertThrows(Exception.class, () -> {
+                buffer.readIntoFilePos(channel, 0L, 1L);
+            });
+
+            // test read/write value
+
+            int toWrite = 0x01 | (0x02 << 8) | (0x04 << 16) | (0x08 << 24);
+            buffer.writeIntNO(toWrite);
+
+            // write
+            if (!useNBytes) {
+                assertEquals(4L, buffer.readIntoChannel(channel));
+            } else {
+                buffer.readIntoChannel(channel, 4L);
+            }
+            assertEquals(0L, buffer.getReadableBytes());
+            assertEquals(4L, channel.position());
+            assertEquals(4L, channel.size());
+
+            // read back
+            channel.position(0L);
+            assertEquals(0L, channel.position());
+
+            if (!useNBytes) {
+                assertEquals(4L, buffer.writeFromChannel(channel));
+            } else {
+                buffer.writeFromChannel(channel, 4L);
+            }
+            assertEquals(4L, buffer.getReaderIndex());
+            assertEquals(toWrite, buffer.readIntNO());
+            assertEquals(4L, channel.position());
+            assertEquals(4L, channel.size());
+
+            buffer.clear();
+            channel.position(0L);
+
+            // again with specified positions
+            toWrite = Integer.rotateLeft(toWrite, 1);
+            buffer.writeIntNO(toWrite);
+
+            if (useNBytes) {
+                buffer.readIntoFilePos(channel, 0L, 4L);
+            } else {
+                assertEquals(4L, buffer.readIntoFilePos(channel, 0L));
+            }
+            assertEquals(0L, buffer.getReadableBytes());
+            assertEquals(0L, channel.position()); // did not adjust pos
+            assertEquals(4L, channel.size()); // did not adjust size
+
+            // read back
+            if (useNBytes) {
+                buffer.writeFromFilePos(channel, 0L, 4L);
+            } else {
+                assertEquals(4L, buffer.writeFromFilePos(channel, 0L));
+            }
+
+            assertEquals(4L, buffer.getReaderIndex());
+            assertEquals(toWrite, buffer.readIntNO());
+            assertEquals(0L, channel.position()); // did not adjust pos
+            assertEquals(4L, channel.size()); // did not adjust size
+
+
+            channel.position(4L);
+
+            assertEquals(4L, channel.position());
+            assertEquals(4L, channel.size());
+
+            assertThrows(Exception.class, () -> {
+                buffer.writeFromChannel(channel, 1L);
+            });
+            assertThrows(Exception.class, () -> {
+                buffer.readIntoChannel(channel, 1L);
+            });
+
+            assertThrows(Exception.class, () -> {
+                buffer.writeFromFilePos(channel, 4L, 1L);
+            });
+            assertThrows(Exception.class, () -> {
+                buffer.readIntoFilePos(channel, 4L, 1L);
+            });
+        }
+    }
+
     @Test
-    public void testChannelRW() throws IOException {
-        final DummyChannel channel = new DummyChannel(ByteBuffer.allocateDirect(16));
+    public void testChannel() throws IOException {
+        this.testChannel(false);
+    }
 
-        final Buffer buffer = new Buffer(false, "test", MemoryAllocator.UnPooledHeap.INSTANCE, 32L, 32L);
-
-        assertEquals(0L, buffer.writeFromChannel(channel));
-        assertEquals(0L, buffer.readIntoChannel(channel));
-        assertThrows(Exception.class, () -> {
-            buffer.writeFromChannel(channel, 1L);
-        });
-        assertThrows(Exception.class, () -> {
-            buffer.readIntoChannel(channel, 1L);
-        });
-        assertEquals(0L, buffer.getReaderIndex());
-        assertEquals(0L, buffer.getWriterIndex());
-
-        int toWrite = 0x01 | (0x02 << 8) | (0x04 << 16) | (0x08 << 24);
-        buffer.writeIntNO(toWrite);
-
-        assertEquals(4L, buffer.readIntoChannel(channel));
-        assertEquals(0L, buffer.getReadableBytes());
-        assertEquals(4L, buffer.writeFromChannel(channel));
-        assertEquals(4L, buffer.getReaderIndex());
-        assertEquals(toWrite, buffer.readIntNO());
-
-        toWrite = Integer.rotateLeft(toWrite, 1);
-        buffer.writeIntNO(toWrite);
-
-        assertEquals(4L, buffer.getReadableBytes());
-        buffer.readIntoChannel(channel, 4L);
-        assertEquals(0L, buffer.getReadableBytes());
-        buffer.writeFromChannel(channel, 4L);
-        assertEquals(4L, buffer.getReadableBytes());
-        assertEquals(toWrite, buffer.readIntNO());
-        assertThrows(Exception.class, () -> {
-            buffer.writeFromChannel(channel, 1L);
-        });
-        assertThrows(Exception.class, () -> {
-            buffer.readIntoChannel(channel, 1L);
-        });
+    @Test
+    public void testChannelNBytes() throws IOException {
+        this.testChannel(true);
     }
 
     @Test
@@ -2781,8 +2859,13 @@ public final class BufferTest {
     @Test
     public void testFree() {
         final Buffer buffer = new Buffer(false, "test", MemoryAllocator.UnPooledHeap.INSTANCE, 1L, 32L);
+        assertThrows(Exception.class, () -> {
+            buffer.ensureRefCountZero();
+        });
+        buffer.incReferenceCount("test2");
         assertNotEquals(null, buffer.getMemoryAsBuffer());
         buffer.decReferenceCount("test");
+        buffer.decReferenceCount("test2");
         assertNull(buffer.getMemoryAsSegment());
         assertNull(buffer.getMemoryAsBuffer());
         assertThrows(Exception.class, () -> {
@@ -2791,11 +2874,39 @@ public final class BufferTest {
         assertThrows(Exception.class, () -> {
             buffer.writeIntNO(-1);
         });
+        buffer.ensureRefCountZero();
     }
 
-    private static final class DummyChannel implements ByteChannel {
-        // position is read index
-        // limit is write index
+    @Test
+    public void testFreeDebug() {
+        final Buffer buffer = new Buffer(true, "test", MemoryAllocator.UnPooledHeap.INSTANCE, 1L, 32L);
+        assertThrows(Exception.class, () -> {
+            buffer.ensureRefCountZero();
+        });
+        buffer.incReferenceCount("test2");
+        assertThrows(Exception.class, () -> {
+            buffer.incReferenceCount("test2");
+        });
+        assertNotEquals(null, buffer.getMemoryAsBuffer());
+        assertThrows(Exception.class, () -> {
+            buffer.decReferenceCount("test3");
+        });
+        buffer.decReferenceCount("test");
+        buffer.decReferenceCount("test2");
+        assertNull(buffer.getMemoryAsSegment());
+        assertNull(buffer.getMemoryAsBuffer());
+        assertThrows(Exception.class, () -> {
+            buffer.readIntNO();
+        });
+        assertThrows(Exception.class, () -> {
+            buffer.writeIntNO(-1);
+        });
+        buffer.ensureRefCountZero();
+    }
+
+    public static final class DummyChannel extends FileChannel {
+        // position is position
+        // limit is size
         private final ByteBuffer stored;
 
         public DummyChannel(final ByteBuffer stored) {
@@ -2805,32 +2916,127 @@ public final class BufferTest {
         }
 
         @Override
+        public long position() {
+            return (long)this.stored.position();
+        }
+
+        @Override
+        public DummyChannel position(final long newPosition) {
+            final int posInt = Math.toIntExact(newPosition);
+            if (posInt > this.stored.capacity()) {
+                throw new UnsupportedOperationException();
+            }
+            if (posInt > this.stored.limit()) {
+                this.stored.limit(posInt);
+            }
+            this.stored.position(posInt);
+            return this;
+        }
+
+        @Override
+        public long size() {
+            return (long)this.stored.limit();
+        }
+
+        @Override
         public int read(final ByteBuffer dst) {
             final int toRead = Math.min(dst.remaining(), this.stored.remaining());
-            dst.put(dst.position(), this.stored, this.stored.position(), toRead);
+            if (toRead > 0) {
+                dst.put(dst.position(), this.stored, this.stored.position(), toRead);
 
-            dst.position(dst.position() + toRead);
-            this.stored.position(this.stored.position() + toRead);
+                dst.position(dst.position() + toRead);
+                this.stored.position(this.stored.position() + toRead);
+            }
+
+            return toRead;
+        }
+
+        @Override
+        public int read(final ByteBuffer dst, final long pos) {
+            final int posInt = Math.toIntExact(pos);
+            final int toRead = Math.clamp(dst.remaining(), 0, this.stored.limit() - posInt);
+            if (toRead > 0) {
+                dst.put(dst.position(), this.stored, posInt, toRead);
+                dst.position(dst.position() + toRead);
+            }
 
             return toRead;
         }
 
         @Override
         public int write(final ByteBuffer src) {
-            final int toWrite = Math.min(src.remaining(), this.stored.capacity() - this.stored.limit());
-            final int writeIdx = this.stored.limit();
-            this.stored.limit(writeIdx + toWrite);
-            this.stored.put(writeIdx, src, src.position(), toWrite);
-            src.position(src.position() + toWrite);
+            final int toWrite = Math.min(src.remaining(), this.stored.capacity() - this.stored.position());
+            if (toWrite > 0) {
+                final int writeIdx = this.stored.position();
+                this.stored.limit(Math.max(this.stored.limit(), this.stored.position() + toWrite));
+                this.stored.position(this.stored.position() + toWrite);
+
+                this.stored.put(writeIdx, src, src.position(), toWrite);
+                src.position(src.position() + toWrite);
+            }
             return toWrite;
         }
 
         @Override
-        public boolean isOpen() {
-            return true;
+        public int write(final ByteBuffer src, final long pos) {
+            final int posInt = Math.toIntExact(pos);
+            final int toWrite = Math.min(src.remaining(), this.stored.capacity() - posInt);
+
+            if (toWrite > 0) {
+                this.stored.limit(Math.max(this.stored.limit(), posInt + toWrite));
+                this.stored.put(posInt, src, src.position(), toWrite);
+                src.position(src.position() + toWrite);
+            }
+            return toWrite;
         }
 
         @Override
-        public void close() throws IOException {}
+        public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FileChannel truncate(long size) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void force(boolean metaData) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public MappedByteBuffer map(MapMode mode, long position, long size) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FileLock lock(long position, long size, boolean shared) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FileLock tryLock(long position, long size, boolean shared) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+
+        @Override
+        protected void implCloseChannel() throws IOException {}
     }
 }

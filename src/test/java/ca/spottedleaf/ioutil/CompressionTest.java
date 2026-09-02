@@ -108,11 +108,20 @@ public final class CompressionTest {
     }
 
     private static void runTests(final boolean srcNative, final boolean dstNative, final boolean deflate) throws DataFormatException, ZstdException {
-        runSingleTest(SMALL_DATA_BYTES, srcNative, dstNative, 0, deflate);
-        runSingleTest(SMALL_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, 0, deflate);
-        runSingleTest(LARGE_DATA_BYTES, srcNative, dstNative, 0, deflate);
-        runSingleTest(LARGE_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, 0, deflate);
-        runSingleBadTest(SMALL_DATA_BYTES, srcNative, dstNative, 0, deflate);
+        runTests(srcNative, dstNative, deflate, 0.0);
+        runTests(srcNative, dstNative, deflate, 0.1);
+        runTests(srcNative, dstNative, deflate, 0.5);
+        runTests(srcNative, dstNative, deflate, 1.0);
+        runTests(srcNative, dstNative, deflate, 2.0);
+    }
+
+    private static void runTests(final boolean srcNative, final boolean dstNative, final boolean deflate,
+                                 final double initSizeFactor) throws DataFormatException, ZstdException {
+        runSingleTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), deflate);
+        runSingleTest(SMALL_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_INCOMPRESSIBLE_BYTES.length), deflate);
+        runSingleTest(LARGE_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_BYTES.length), deflate);
+        runSingleTest(LARGE_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_INCOMPRESSIBLE_BYTES.length), deflate);
+        runSingleBadTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), deflate);
     }
 
     private static void runSingleBadTest(final byte[] data, final boolean srcNative, final boolean dstNative, final int dstInitSize,

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Objects;
 
@@ -722,6 +723,24 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
             final long toRead = Math.min(this.readBuffer.getReadableBytes(), nBytes - bytesRead);
             bytesRead += toRead;
             this.readBuffer.readIntoChannel(channel, toRead);
+        }
+    }
+
+    public final long readFilePos(final FileChannel channel, final long channelPos) throws IOException {
+        if (!this.tryEnsure(1L)) {
+            return 0L;
+        }
+        return this.readBuffer.readIntoFilePos(channel, channelPos);
+    }
+
+    public final void readFilePos(final FileChannel channel, final long channelPos, final long nBytes) throws IOException {
+        long bytesRead = 0L;
+        while (bytesRead < nBytes) {
+            this.ensureReadable(1L);
+
+            final long toRead = Math.min(this.readBuffer.getReadableBytes(), nBytes - bytesRead);
+            bytesRead += toRead;
+            this.readBuffer.readIntoFilePos(channel, channelPos + bytesRead, toRead);
         }
     }
 
