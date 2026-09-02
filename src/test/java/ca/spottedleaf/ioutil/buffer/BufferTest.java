@@ -1,7 +1,5 @@
-package ca.spottedleaf.ioutil;
+package ca.spottedleaf.ioutil.buffer;
 
-import ca.spottedleaf.ioutil.buffer.Buffer;
-import ca.spottedleaf.ioutil.buffer.MemoryAllocator;
 import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -10,7 +8,6 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.ByteChannel;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.ReadableByteChannel;

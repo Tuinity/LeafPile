@@ -1,8 +1,7 @@
-package ca.spottedleaf.ioutil;
+package ca.spottedleaf.ioutil.util;
 
 import ca.spottedleaf.ioutil.buffer.Buffer;
 import ca.spottedleaf.ioutil.buffer.MemoryAllocator;
-import ca.spottedleaf.ioutil.util.CompressionUtil;
 import com.github.luben.zstd.ZstdException;
 import org.junit.jupiter.api.Test;
 import java.util.Arrays;

@@ -281,7 +281,7 @@ public final class Buffer extends ReferenceCounted {
     }
 
     public static int castIndexToInt(final long idx) {
-        if (idx < 0L || idx > (long)Integer.MAX_VALUE) {
+        if ((long)(int)idx != idx) {
             throw new IllegalStateException();
         }
         return (int)idx;

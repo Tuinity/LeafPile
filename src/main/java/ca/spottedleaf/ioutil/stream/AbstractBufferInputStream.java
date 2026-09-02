@@ -739,8 +739,8 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
             this.ensureReadable(1L);
 
             final long toRead = Math.min(this.readBuffer.getReadableBytes(), nBytes - bytesRead);
-            bytesRead += toRead;
             this.readBuffer.readIntoFilePos(channel, channelPos + bytesRead, toRead);
+            bytesRead += toRead;
         }
     }
 

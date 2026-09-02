@@ -42,7 +42,7 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
 
     protected final void ensureWritable(final long nBytes) throws IOException {
         if (!this.tryEnsure(nBytes)) {
-            throw new IllegalStateException();
+            throw new IllegalStateException("Cannot ensure that at least " + nBytes + " are available");
         }
     }
 
@@ -70,8 +70,7 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
 
     @Override
     public final void write(final int b) throws IOException {
-        this.ensureWritable(1L);
-        this.writeBuffer.writeByte((byte)b);
+        this.writeByte(b);
     }
 
     @Override
@@ -441,6 +440,11 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
     public final void writeMedium(final int value) throws IOException {
         this.ensureWritable(3L);
         this.writeBuffer.writeMediumBE(value);
+    }
+
+    public final void writeMediumLE(final int value) throws IOException {
+        this.ensureWritable(3L);
+        this.writeBuffer.writeMediumLE(value);
     }
 
     public final void writeMediums(final int[] values) throws IOException {

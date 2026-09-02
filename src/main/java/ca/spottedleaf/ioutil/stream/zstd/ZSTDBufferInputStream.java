@@ -161,7 +161,9 @@ public final class ZSTDBufferInputStream extends AbstractBufferInputStream {
             }
         } finally {
             try {
-                this.closeDecompressor.accept(this.decompressor);
+                if (this.closeDecompressor != null) {
+                    this.closeDecompressor.accept(this.decompressor);
+                }
             } finally {
                 this.readBuffer.decReferenceCount(REF_KEY);
                 this.compressedBuffer.decReferenceCount(REF_KEY);

@@ -142,7 +142,9 @@ public final class ZSTDBufferOutputStream extends AbstractBufferOutputStream {
                 }
             } finally {
                 try {
-                    this.closeCompressor.accept(this.compressor);
+                    if (this.closeCompressor != null) {
+                        this.closeCompressor.accept(this.compressor);
+                    }
                 } finally {
                     this.writeBuffer.decReferenceCount(REF_KEY);
                     this.compressedBuffer.decReferenceCount(REF_KEY);
