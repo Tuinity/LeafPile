@@ -29,6 +29,7 @@ public class Int2ObjectArraySortedMap<V> {
         }
         System.arraycopy(this.key, insert, this.key, insert + 1, this.size - insert);
         System.arraycopy(this.val, insert, this.val, insert + 1, this.size - insert);
+        ++this.size;
 
         this.key[insert] = key;
         this.val[insert] = value;
@@ -49,6 +50,7 @@ public class Int2ObjectArraySortedMap<V> {
         }
         System.arraycopy(this.key, insert, this.key, insert + 1, this.size - insert);
         System.arraycopy(this.val, insert, this.val, insert + 1, this.size - insert);
+        ++this.size;
 
         this.key[insert] = key;
 
@@ -66,8 +68,8 @@ public class Int2ObjectArraySortedMap<V> {
     public V getFloor(final int key) {
         final int index = Arrays.binarySearch(this.key, 0, this.size, key);
         if (index < 0) {
-            final int insert = -(index + 1);
-            return this.val[insert];
+            final int insert = -(index + 1) - 1;
+            return insert < 0 ? null : this.val[insert];
         }
         return this.val[index];
     }
