@@ -1,10 +1,8 @@
 package ca.spottedleaf.concurrentutil.lock;
 
-import ca.spottedleaf.concurrentutil.collection.MultiThreadedQueue;
 import ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable;
 import ca.spottedleaf.common.util.IntPairUtil;
 import java.util.Objects;
-import java.util.concurrent.locks.LockSupport;
 
 public final class ReentrantAreaLock {
 
@@ -123,10 +121,7 @@ public final class ReentrantAreaLock {
             areaAffectedLen = 0;
 
             // since we inserted, we need to drain waiters
-            Thread unpark;
-            while ((unpark = ret.pollOrBlockAdds()) != null) {
-                LockSupport.unpark(unpark);
-            }
+            ret.notifier.notifyThreads();
         }
 
         return null;
@@ -144,7 +139,7 @@ public final class ReentrantAreaLock {
 
         final Node ret = new Node(this, areaAffected, currThread);
 
-        for (long failures = 0L;;) {
+        for (;;) {
             final Node park;
 
             // try to fast acquire area
@@ -163,26 +158,7 @@ public final class ReentrantAreaLock {
                 }
             }
 
-            ++failures;
-
-            if (failures > 128L && park.add(currThread)) {
-                LockSupport.park(park);
-            } else {
-                // high contention, spin wait
-                if (failures < 128L) {
-                    for (long i = 0; i < failures; ++i) {
-                        Thread.onSpinWait();
-                    }
-                    failures = failures << 1;
-                } else if (failures < 1_200L) {
-                    LockSupport.parkNanos(park, 1_000L);
-                    failures = failures + 1L;
-                } else { // scale 0.1ms (100us) per failure
-                    Thread.yield();
-                    LockSupport.parkNanos(park, 100_000L * failures);
-                    failures = failures + 1L;
-                }
-            }
+            park.notifier.waitUntilReady();
         }
     }
 
@@ -211,7 +187,7 @@ public final class ReentrantAreaLock {
 
         final Node ret = new Node(this, areaAffected, currThread);
 
-        for (long failures = 0L;;) {
+        for (;;) {
             Node park = null;
             boolean addedToArea = false;
             boolean alreadyOwned = false;
@@ -253,14 +229,12 @@ public final class ReentrantAreaLock {
                 areaAffectedLen = 0;
 
                 // since we inserted, we need to drain waiters
-                Thread unpark;
-                while ((unpark = ret.pollOrBlockAdds()) != null) {
-                    LockSupport.unpark(unpark);
-                }
+                ret.notifier.notifyThreadsAndBlock();
             }
 
             if (park == null) {
                 if (alreadyOwned && !allOwned) {
+                    ret.notifier.notifyThreads();
                     throw new IllegalStateException("Improper lock usage: Should never acquire intersecting areas");
                 }
                 ret.areaAffectedLen = areaAffectedLen;
@@ -268,32 +242,6 @@ public final class ReentrantAreaLock {
             }
 
             // failed
-
-            ++failures;
-
-            if (failures > 128L && park.add(currThread)) {
-                LockSupport.park(park);
-            } else {
-                // high contention, spin wait
-                if (failures < 128L) {
-                    for (long i = 0; i < failures; ++i) {
-                        Thread.onSpinWait();
-                    }
-                    failures = failures << 1;
-                } else if (failures < 1_200L) {
-                    LockSupport.parkNanos(park, 1_000L);
-                    failures = failures + 1L;
-                } else { // scale 0.1ms (100us) per failure
-                    Thread.yield();
-                    LockSupport.parkNanos(park, 100_000L * failures);
-                    failures = failures + 1L;
-                }
-            }
-
-            if (addedToArea) {
-                // try again, so we need to allow adds so that other threads can properly block on us
-                ret.allowAdds();
-            }
         }
     }
 
@@ -320,15 +268,13 @@ public final class ReentrantAreaLock {
             }
         }
 
-        Thread unpark;
-        while ((unpark = node.pollOrBlockAdds()) != null) {
-            LockSupport.unpark(unpark);
-        }
+        node.notifier.notifyThreads();
     }
 
-    public static final class Node extends MultiThreadedQueue<Thread> {
+    public static final class Node {
 
         private final ReentrantAreaLock lock;
+        private final Notifier notifier = new Notifier(true);
         private final long[] areaAffected;
         private int areaAffectedLen;
         private final Thread thread;

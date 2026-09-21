@@ -1,11 +1,9 @@
 package ca.spottedleaf.concurrentutil.executor;
 
-import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
+import ca.spottedleaf.concurrentutil.lock.Notifier;
 import ca.spottedleaf.concurrentutil.util.Priority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.lang.invoke.VarHandle;
-import java.util.concurrent.locks.LockSupport;
 
 public class QueueExecutorRunnable implements Runnable, PrioritisedExecutor {
 
@@ -16,23 +14,13 @@ public class QueueExecutorRunnable implements Runnable, PrioritisedExecutor {
 
     protected volatile boolean threadShutdown;
 
-    protected volatile boolean threadParked;
-    protected static final VarHandle THREAD_PARKED_HANDLE = ConcurrentUtil.getVarHandle(QueueExecutorRunnable.class, "threadParked", boolean.class);
+    private final Notifier notifier = new Notifier(false);
 
     protected volatile boolean halted;
 
-    protected final long spinWaitTimeNS;
-
-    protected static final long DEFAULT_SPINWAIT_TIME = (long)(0.1e6); // 0.1ms
-
     public QueueExecutorRunnable(final Thread thread, final PrioritisedExecutor queue) {
-        this(thread, queue, DEFAULT_SPINWAIT_TIME);
-    }
-
-    public QueueExecutorRunnable(final Thread thread, final PrioritisedExecutor queue, final long spinWaitTimeNS) { // in ns
         this.thread = thread;
         this.queue = queue;
-        this.spinWaitTimeNS = spinWaitTimeNS;
     }
 
     @Override
@@ -49,64 +37,22 @@ public class QueueExecutorRunnable implements Runnable, PrioritisedExecutor {
     private boolean mainLoop() {
         this.pollTasks();
 
-        final long spinWaitTimeNS = this.spinWaitTimeNS;
-        // spinwait if configured
-        if (spinWaitTimeNS > 0L) {
-            final long start = System.nanoTime();
-            final long deadline = start + spinWaitTimeNS;
-            for (long sleepTime = Math.min(100_000L, spinWaitTimeNS);;) {
-                this.setParked();
+        if (this.handleClose()) {
+            return false;
+        }
 
-                if (this.pollTasks()) {
-                    this.unsetParked();
-                    return true;
-                }
-
-                if (this.handleClose()) {
-                    this.unsetParked();
-                    return false;
-                }
-
-                Thread.interrupted();
-                LockSupport.parkNanos("Short parking", sleepTime);
-                this.unsetParked();
-
-                if (this.pollTasks()) {
-                    return true;
-                }
-
-                final long timeToDeadline = deadline - System.nanoTime();
-
-                if (timeToDeadline <= 0L) {
-                    // begin long parking
-                    break;
-                }
-
-                // don't try to sleep past the spinwait deadline
-                sleepTime = Math.min(timeToDeadline, sleepTime);
-            }
-        } // else: go straight to long parking
-
-        this.setParked();
-
-        // We need to parse here to avoid a race condition where a thread queues a task before we set parked to true
-        // (i.e. it will not notify us)
+        this.notifier.block();
         if (this.pollTasks()) {
-            this.unsetParked();
+            this.notifier.notifyThreads();
             return true;
         }
 
         if (this.handleClose()) {
-            this.unsetParked();
+            this.notifier.notifyThreads();
             return false;
         }
 
-        // we don't need to check parked before sleeping, but we do need to check parked in a do-while loop
-        // LockSupport.park() can fail for any reason
-        while (this.getThreadParkedVolatile()) {
-            Thread.interrupted();
-            LockSupport.park("Long parking");
-        }
+        this.notifier.waitUntilReady();
 
         return true;
     }
@@ -149,25 +95,12 @@ public class QueueExecutorRunnable implements Runnable, PrioritisedExecutor {
         return false;
     }
 
-    private boolean unsetParked() {
-        // avoid contending the cache (i.e. forcing write or exclusive ownership) by doing no writes unless we need to
-        return this.getThreadParkedVolatile() && this.compareAndExchangeThreadParkedVolatile(true, false);
-    }
-
-    private void setParked() {
-        this.setThreadParkedVolatile(true);
-    }
-
     /**
      * Notify this thread that a task has been added to its queue
      * @return {@code true} if this thread was waiting for tasks, {@code false} if it is executing tasks
      */
     public final boolean notifyTasks() {
-        if (this.unsetParked()) {
-            LockSupport.unpark(this.thread);
-            return true;
-        }
-        return false;
+        return this.notifier.notifyThreads();
     }
 
     @Override
@@ -314,18 +247,6 @@ public class QueueExecutorRunnable implements Runnable, PrioritisedExecutor {
 
         // force thread to respond to the shutdown
         this.notifyTasks();
-    }
-
-    protected final boolean getThreadParkedVolatile() {
-        return (boolean)THREAD_PARKED_HANDLE.getVolatile(this);
-    }
-
-    protected final boolean compareAndExchangeThreadParkedVolatile(final boolean expect, final boolean update) {
-        return (boolean)THREAD_PARKED_HANDLE.compareAndExchange(this, expect, update);
-    }
-
-    protected final void setThreadParkedVolatile(final boolean value) {
-        THREAD_PARKED_HANDLE.setVolatile(this, value);
     }
 
     /**
