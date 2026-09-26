@@ -18,7 +18,16 @@
 out/
 
 # Gradle
-/build
+/build/
+/build-logic/build/
+/build-logic/.gradle/
+/common/build/
+/converter/build/
+/concurrentutil/build/
+/ioutil/build/
+/profiler/build/
+/sampler/build/
+/yamlconfig/build/
 /.gradle
 
 # Package Files #
@@ -35,5 +44,5 @@ out/
 hs_err_pid*
 
 # generated sources
-src/main/java/ca/spottedleaf/concurrentutil/map/concurrent/*
-src/test/java/ca/spottedleaf/yamlconfig/generated/*
+/concurrentutil/src/main/java/ca/spottedleaf/concurrentutil/map/concurrent/
+/yamlconfig/src/test/java/ca/spottedleaf/yamlconfig/generated/

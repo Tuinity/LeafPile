@@ -2,7 +2,6 @@
 it-unimi-dsi-fastutil = "8.5.19"
 org-slf4j-slf4j-api = "2.0.18"
 net-java-dev-jna = "5.19.1"
-at-yawk-lz4-lz4-java = "1.11.2"
 com-github-luben-zstd-jni = "1.5.7-16"
 org-yaml-snakeyaml = "2.7"
 org-junit-jupiter-junit-jupiter = "6.1.3"
@@ -11,7 +10,6 @@ org-junit-jupiter-junit-jupiter = "6.1.3"
 it-unimi-dsi-fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "it-unimi-dsi-fastutil" }
 org-slf4j-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "org-slf4j-slf4j-api" }
 net-java-dev-jna = { module = "net.java.dev.jna:jna", version.ref = "net-java-dev-jna" }
-at-yawk-lz4-lz4-java = { module = "at.yawk.lz4:lz4-java", version.ref = "at-yawk-lz4-lz4-java" }
 com-github-luben-zstd-jni = { module = "com.github.luben:zstd-jni", version.ref = "com-github-luben-zstd-jni" }
 org-yaml-snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "org-yaml-snakeyaml" }
 org-junit-jupiter-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "org-junit-jupiter-junit-jupiter" }
