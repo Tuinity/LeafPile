@@ -25,10 +25,15 @@ out/
 /converter/build/
 /concurrentutil/build/
 /ioutil/build/
+/bom/build/
 /profiler/build/
 /sampler/build/
 /yamlconfig/build/
 /.gradle
+
+# Kotlin compiler transient state
+.kotlin/
+kotlin-compiler*/
 
 # Package Files #
 *.jar

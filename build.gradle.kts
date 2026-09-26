@@ -1,1 +1,1 @@
-// The root is an aggregator; only the individual libraries are published.
+// The root is an aggregator; only the BOM and individual libraries are published.

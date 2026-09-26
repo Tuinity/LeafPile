@@ -5,6 +5,7 @@ pluginManagement {
 }
 
 include(
+    "bom",
     "common",
     "converter",
     "concurrentutil",

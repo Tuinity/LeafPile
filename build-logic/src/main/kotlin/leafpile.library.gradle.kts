@@ -2,7 +2,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 
 plugins {
     id("net.kyori.indra")
-    id("net.kyori.indra.publishing")
+    id("leafpile.publishing")
 }
 
 repositories {
@@ -12,6 +12,7 @@ repositories {
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
+    api(platform(project(":bom")))
     testImplementation(libs.findLibrary("org-junit-jupiter-junit-jupiter").get())
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -28,18 +29,4 @@ indra {
     javaVersions {
         target(25)
     }
-    publishSnapshotsTo("paperSnapshots", "https://repo.papermc.io/repository/maven-snapshots/")
-    publishReleasesTo("paperReleases", "https://repo.papermc.io/repository/maven-releases/")
-    gpl3OnlyLicense()
-    github("Tuinity", "LeafPile")
-    configurePublications {
-        pom {
-            developers {
-                developer {
-                    id = "spottedleaf"
-                }
-            }
-        }
-    }
-    signWithKeyFromProperties("signingKey", "signingPassword")
 }
