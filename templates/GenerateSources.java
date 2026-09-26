@@ -35,7 +35,7 @@ public final class GenerateSources {
                               final boolean isRefKey, final boolean isRefValue,
                               final Path src) throws Exception {
         final Path dst = Path.of(
-                dstDir, "src", "main", "java", "ca", "spottedleaf", "concurrentutil", "map", "concurrent",
+                dstDir, "concurrentutil", "src", "main", "java", "ca", "spottedleaf", "concurrentutil", "map", "concurrent",
                 key.getSimpleName().toLowerCase(Locale.ROOT) + "s",
                 "ConcurrentChained" +
                         (isRefKey ? "Reference" : firstUpper(key.getSimpleName())) +
@@ -144,7 +144,7 @@ public final class GenerateSources {
             defMacro("NUMBER_UPPER", new ArrayList<>(), upperName, macros);
 
             final Path dst = Path.of(
-                    dstDir, "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
+                    dstDir, "yamlconfig", "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
                     upperName + "Test.java"
             );
 
@@ -181,7 +181,7 @@ public final class GenerateSources {
             defMacro("NUMBER_UPPER", new ArrayList<>(), upperName, macros);
 
             final Path dst = Path.of(
-                    dstDir, "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
+                    dstDir, "yamlconfig", "src", "test", "java", "ca", "spottedleaf", "yamlconfig", "generated",
                     upperName + "Test.java"
             );
 
