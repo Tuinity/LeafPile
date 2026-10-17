@@ -2,15 +2,22 @@ package ca.spottedleaf.ioutil.util;
 
 import ca.spottedleaf.ioutil.buffer.Buffer;
 import ca.spottedleaf.ioutil.buffer.MemoryAllocator;
-import com.github.luben.zstd.ZstdException;
-import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.zip.DataFormatException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class CompressionTest {
+public final class CompressionTestSupport {
+
+    @FunctionalInterface
+    public interface Compressor {
+        int compress(Buffer src, int toRead, Buffer dst, int maxWrite);
+    }
+
+    @FunctionalInterface
+    public interface Decompressor {
+        int decompress(Buffer src, int toRead, Buffer dst, int maxWrite) throws Exception;
+    }
 
     private static final Random RANDOM = new Random(7L);
     private static final byte[] SMALL_DATA_BYTES = new byte[128];
@@ -26,7 +33,7 @@ public final class CompressionTest {
     }
 
     private static void runSingleTest(final byte[] data, final boolean srcNative, final boolean dstNative, final int dstInitSize,
-                                      final boolean deflate) throws DataFormatException, ZstdException {
+                                      final Compressor compressor, final Decompressor decompressor) throws Exception {
         final String key = "decompress";
 
         // setup buffers
@@ -43,12 +50,7 @@ public final class CompressionTest {
         );
         try {
             // compress
-            int wrote;
-            if (deflate) {
-                wrote = CompressionUtil.deflate(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
-            } else {
-                wrote = CompressionUtil.zstdCompress(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
-            }
+            int wrote = compressor.compress(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
 
             // check indices
             assertEquals(data.length, src.getReaderIndex());
@@ -75,11 +77,7 @@ public final class CompressionTest {
 
             // decompress
             final int compressedSize = wrote;
-            if (deflate) {
-                wrote = CompressionUtil.inflate(dst, (int)dst.getReadableBytes(), src, (int)src.getWritableBytes());
-            } else {
-                wrote = CompressionUtil.zstdDecompress(dst, (int)dst.getReadableBytes(), src, (int)src.getWritableBytes());
-            }
+            wrote = decompressor.decompress(dst, (int)dst.getReadableBytes(), src, (int)src.getWritableBytes());
 
             // check indices
             assertEquals(data.length, wrote);
@@ -106,25 +104,29 @@ public final class CompressionTest {
         }
     }
 
-    private static void runTests(final boolean srcNative, final boolean dstNative, final boolean deflate) throws DataFormatException, ZstdException {
-        runTests(srcNative, dstNative, deflate, 0.0);
-        runTests(srcNative, dstNative, deflate, 0.1);
-        runTests(srcNative, dstNative, deflate, 0.5);
-        runTests(srcNative, dstNative, deflate, 1.0);
-        runTests(srcNative, dstNative, deflate, 2.0);
+    public static void runTests(final boolean srcNative, final boolean dstNative,
+                                final Compressor compressor, final Decompressor decompressor,
+                                final Class<? extends Exception> invalidDataException) throws Exception {
+        runTests(srcNative, dstNative, 0.0, compressor, decompressor, invalidDataException);
+        runTests(srcNative, dstNative, 0.1, compressor, decompressor, invalidDataException);
+        runTests(srcNative, dstNative, 0.5, compressor, decompressor, invalidDataException);
+        runTests(srcNative, dstNative, 1.0, compressor, decompressor, invalidDataException);
+        runTests(srcNative, dstNative, 2.0, compressor, decompressor, invalidDataException);
     }
 
-    private static void runTests(final boolean srcNative, final boolean dstNative, final boolean deflate,
-                                 final double initSizeFactor) throws DataFormatException, ZstdException {
-        runSingleTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), deflate);
-        runSingleTest(SMALL_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_INCOMPRESSIBLE_BYTES.length), deflate);
-        runSingleTest(LARGE_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_BYTES.length), deflate);
-        runSingleTest(LARGE_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_INCOMPRESSIBLE_BYTES.length), deflate);
-        runSingleBadTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), deflate);
+    private static void runTests(final boolean srcNative, final boolean dstNative, final double initSizeFactor,
+                                 final Compressor compressor, final Decompressor decompressor,
+                                 final Class<? extends Exception> invalidDataException) throws Exception {
+        runSingleTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), compressor, decompressor);
+        runSingleTest(SMALL_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_INCOMPRESSIBLE_BYTES.length), compressor, decompressor);
+        runSingleTest(LARGE_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_BYTES.length), compressor, decompressor);
+        runSingleTest(LARGE_DATA_INCOMPRESSIBLE_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)LARGE_DATA_INCOMPRESSIBLE_BYTES.length), compressor, decompressor);
+        runSingleBadTest(SMALL_DATA_BYTES, srcNative, dstNative, (int)(initSizeFactor * (double)SMALL_DATA_BYTES.length), compressor, decompressor, invalidDataException);
     }
 
     private static void runSingleBadTest(final byte[] data, final boolean srcNative, final boolean dstNative, final int dstInitSize,
-                                         final boolean deflate) {
+                                         final Compressor compressor, final Decompressor decompressor,
+                                         final Class<? extends Exception> invalidDataException) {
         final String key = "decompress";
 
         // setup buffers
@@ -141,40 +143,23 @@ public final class CompressionTest {
         );
         try {
             // compress
-            final int wrote;
-            if (deflate) {
-                wrote = CompressionUtil.deflate(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
-            } else {
-                wrote = CompressionUtil.zstdCompress(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
-            }
+            final int wrote = compressor.compress(src, (int)src.getReadableBytes(), dst, (int)dst.getWritableBytes());
 
             src.setIndices(0L, 0L);
             dst.ensureImmediatelyWritable(1L);
 
             // decompress with extra data
-            if (deflate) {
-                assertThrows(DataFormatException.class, () -> {
-                    CompressionUtil.inflate(dst, (int)dst.getReadableBytes() + 1, src, (int)src.getWritableBytes());
-                });
-            } else {
-                assertThrows(ZstdException.class, () -> {
-                    CompressionUtil.zstdDecompress(dst, (int)dst.getReadableBytes() + 1, src, (int)src.getWritableBytes());
-                });
-            }
+            assertThrows(invalidDataException, () -> {
+                decompressor.decompress(dst, (int)dst.getReadableBytes() + 1, src, (int)src.getWritableBytes());
+            });
 
             src.setIndices(0L, 0L);
             dst.setIndices(0L, (long)wrote);
 
             // decompress with not enough data
-            if (deflate) {
-                assertThrows(DataFormatException.class, () -> {
-                    CompressionUtil.inflate(dst, (int)dst.getReadableBytes() - 1, src, (int)src.getWritableBytes());
-                });
-            } else {
-                assertThrows(ZstdException.class, () -> {
-                    CompressionUtil.zstdDecompress(dst, (int)dst.getReadableBytes() - 1, src, (int)src.getWritableBytes());
-                });
-            }
+            assertThrows(invalidDataException, () -> {
+                decompressor.decompress(dst, (int)dst.getReadableBytes() - 1, src, (int)src.getWritableBytes());
+            });
 
             src.setIndices(0L, 0L);
             dst.setIndices(0L, (long)wrote);
@@ -187,43 +172,5 @@ public final class CompressionTest {
         }
     }
 
-    @Test
-    public void testDeflateNonNative() throws DataFormatException, ZstdException {
-        runTests(false, false, true);
-    }
-
-    @Test
-    public void testDeflateSrcNative() throws DataFormatException, ZstdException {
-        runTests(true, false, true);
-    }
-
-    @Test
-    public void testDeflateDstNative() throws DataFormatException, ZstdException {
-        runTests(false, true, true);
-    }
-
-    @Test
-    public void testDeflateNative() throws DataFormatException, ZstdException {
-        runTests(true, true, true);
-    }
-
-    @Test
-    public void testZSTDNonNative() throws DataFormatException, ZstdException {
-        runTests(false, false, false);
-    }
-
-    @Test
-    public void testZSTDSrcNative() throws DataFormatException, ZstdException {
-        runTests(true, false, false);
-    }
-
-    @Test
-    public void testZSTDDstNative() throws DataFormatException, ZstdException {
-        runTests(false, true, false);
-    }
-
-    @Test
-    public void testZSTDNative() throws DataFormatException, ZstdException {
-        runTests(true, true, false);
-    }
+    private CompressionTestSupport() {}
 }

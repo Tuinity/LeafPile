@@ -5,7 +5,10 @@ plugins {
 dependencies {
     implementation(project(":common"))
     implementation(project(":concurrentutil"))
-    api(libs.com.github.luben.zstd.jni)
+}
+
+configurations.consumable("testClasses") {
+    outgoing.artifact(sourceSets.test.flatMap { it.java.classesDirectory })
 }
 
 // Consumers may use VarHandles and foreign-memory APIs with Minecraft, mod, or

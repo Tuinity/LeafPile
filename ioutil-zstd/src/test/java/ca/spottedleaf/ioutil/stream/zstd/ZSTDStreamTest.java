@@ -1,11 +1,9 @@
-package ca.spottedleaf.ioutil.stream;
+package ca.spottedleaf.ioutil.stream.zstd;
 
 import ca.spottedleaf.ioutil.buffer.Buffer;
 import ca.spottedleaf.ioutil.buffer.MemoryAllocator;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferInputStream;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferOutputStream;
-import ca.spottedleaf.ioutil.stream.zstd.ZSTDBufferInputStream;
-import ca.spottedleaf.ioutil.stream.zstd.ZSTDBufferOutputStream;
 import ca.spottedleaf.ioutil.util.BufferReference;
 import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdDecompressCtx;

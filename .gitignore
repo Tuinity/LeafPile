@@ -25,6 +25,7 @@ out/
 /converter/build/
 /concurrentutil/build/
 /ioutil/build/
+/ioutil-zstd/build/
 /bom/build/
 /profiler/build/
 /sampler/build/

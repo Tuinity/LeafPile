@@ -25,9 +25,9 @@ public final class SimpleBufferStreamTest {
 
     private static final Random RDM = new Random(3L);
 
-    static final int ARRAY_LEN = 8192 + 1;
+    public static final int ARRAY_LEN = 8192 + 1;
 
-    static final byte[] BYTES = new byte[ARRAY_LEN];
+    public static final byte[] BYTES = new byte[ARRAY_LEN];
     static final short[] SHORTS = new short[ARRAY_LEN];
     static final char[] CHARS = new char[ARRAY_LEN];
     static final int[] INTS = new int[ARRAY_LEN];

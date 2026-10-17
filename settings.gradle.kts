@@ -10,6 +10,7 @@ include(
     "converter",
     "concurrentutil",
     "ioutil",
+    "ioutil-zstd",
     "profiler",
     "sampler",
     "yamlconfig",
