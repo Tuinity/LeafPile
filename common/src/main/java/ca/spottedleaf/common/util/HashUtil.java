@@ -128,6 +128,7 @@ public final class HashUtil {
     }
 
     private static final long HASH_MUL = 0x11799ce95ce54aabL;
+    private static final int HASH_SHIFT = 32;
     private static final long INV_HASH_MUL = 0x6c53d747c7f06003L;
 
     /**
@@ -138,7 +139,7 @@ public final class HashUtil {
      */
     public static long hash(final long x) {
         final long h = x * HASH_MUL;
-        return (h ^ (h >>> 32));
+        return (h ^ (h >>> HASH_SHIFT));
     }
 
     /**
@@ -147,7 +148,7 @@ public final class HashUtil {
      * @return The inverse of {@link #hash(long)}.
      */
     public static long invHash(final long x) {
-        return (x ^ x >>> 32) * INV_HASH_MUL;
+        return (x ^ (x >>> HASH_SHIFT)) * INV_HASH_MUL;
     }
 
     private HashUtil() {}

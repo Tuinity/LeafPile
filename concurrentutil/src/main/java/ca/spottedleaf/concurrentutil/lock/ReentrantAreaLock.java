@@ -86,6 +86,7 @@ public final class ReentrantAreaLock {
         boolean failed = false;
 
         // try to fast acquire area
+        area_acquire:
         for (int currY = fromSectionY; currY <= toSectionY; ++currY) {
             for (int currX = fromSectionX; currX <= toSectionX; ++currX) {
                 final long coordinate = IntPairUtil.key(currX, currY);
@@ -99,7 +100,7 @@ public final class ReentrantAreaLock {
 
                 if (prev.thread != currThread) {
                     failed = true;
-                    break;
+                    break area_acquire;
                 }
             }
         }
@@ -140,25 +141,21 @@ public final class ReentrantAreaLock {
         final Node ret = new Node(this, areaAffected, currThread);
 
         for (;;) {
-            final Node park;
+            final Node prev = this.nodes.putIfAbsent(coordinate, ret);
 
-            // try to fast acquire area
-            {
-                final Node prev = this.nodes.putIfAbsent(coordinate, ret);
-
-                if (prev == null) {
-                    ret.areaAffectedLen = 1;
-                    return ret;
-                } else if (prev.thread != currThread) {
-                    park = prev;
-                } else {
-                    // only one node we would want to acquire, and it's owned by this thread already
-                    // areaAffectedLen = 0 already
-                    return ret;
-                }
+            if (prev == null) {
+                // succeeded, only one node needed
+                ret.areaAffectedLen = 1;
+                return ret;
+            } else if (prev.thread != currThread) {
+                prev.notifier.waitUntilReady();
+                // try again
+                continue;
+            } else {
+                // only one node we would want to acquire, and it's owned by this thread already
+                // areaAffectedLen = 0 already
+                return ret;
             }
-
-            park.notifier.waitUntilReady();
         }
     }
 
@@ -185,15 +182,15 @@ public final class ReentrantAreaLock {
         final long[] areaAffected = new long[(toSectionX - fromSectionX + 1) * (toSectionY - fromSectionY + 1)];
         int areaAffectedLen = 0;
 
-        Node ret = new Node(this, areaAffected, currThread);
+        final Node ret = new Node(this, areaAffected, currThread);
 
         for (;;) {
             Node park = null;
-            boolean addedToArea = false;
             boolean alreadyOwned = false;
             boolean allOwned = true;
 
             // try to fast acquire area
+            area_acquire:
             for (int currY = fromSectionY; currY <= toSectionY; ++currY) {
                 for (int currX = fromSectionX; currX <= toSectionX; ++currX) {
                     final long coordinate = IntPairUtil.key(currX, currY);
@@ -201,7 +198,6 @@ public final class ReentrantAreaLock {
                     final Node prev = this.nodes.putIfAbsent(coordinate, ret);
 
                     if (prev == null) {
-                        addedToArea = true;
                         allOwned = false;
                         areaAffected[areaAffectedLen++] = coordinate;
                         continue;
@@ -209,15 +205,16 @@ public final class ReentrantAreaLock {
 
                     if (prev.thread != currThread) {
                         park = prev;
+                        break area_acquire;
+                    } else {
                         alreadyOwned = true;
-                        break;
                     }
                 }
             }
 
-            // check for failure
-            if ((park != null && addedToArea) || (park == null && alreadyOwned && !allOwned)) {
-                // failure to acquire: added and we need to block, or improper lock usage
+            if (park != null) {
+                // failure to acquire: added but another thread holds a part of the area
+                // undo additions
                 for (int i = 0; i < areaAffectedLen; ++i) {
                     final long key = areaAffected[i];
 
@@ -228,22 +225,24 @@ public final class ReentrantAreaLock {
 
                 areaAffectedLen = 0;
 
-                // A contender may start waiting after this notification, so do not reuse the node.
+                // Resume all contenders
                 ret.notifier.notifyThreads();
-                ret = new Node(this, areaAffected, currThread);
+            }
+
+            if (alreadyOwned && !allOwned) {
+                ret.notifier.notifyThreads();
+                throw new IllegalStateException("Improper lock usage: Should never acquire intersecting areas");
             }
 
             if (park == null) {
-                if (alreadyOwned && !allOwned) {
-                    ret.notifier.notifyThreads();
-                    throw new IllegalStateException("Improper lock usage: Should never acquire intersecting areas");
-                }
                 ret.areaAffectedLen = areaAffectedLen;
                 return ret;
             }
 
             // failed
             park.notifier.waitUntilReady();
+            // before re-entering the table, ensure that blocking is set
+            ret.notifier.block();
         }
     }
 
