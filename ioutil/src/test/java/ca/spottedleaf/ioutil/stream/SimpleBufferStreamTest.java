@@ -9,9 +9,12 @@ import ca.spottedleaf.ioutil.stream.wrapped.BufferedBufferOutputStream;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferInputStream;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferOutputStream;
 import org.junit.jupiter.api.Test;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UTFDataFormatException;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -2648,6 +2651,80 @@ public final class SimpleBufferStreamTest {
             assertThrows(Exception.class, () -> {
                 out.writeByte((byte)1);
             });
+        }
+    }
+
+    @Test
+    public void testStringUTFNoOverRead() throws IOException {
+        final String[] strings = new String[] {
+                "this is a very large ascii only string", "ascii string of thirty-two bytes",
+                "small" + String.valueOf((char)0x80), "", "exactly sixteen!", "exactly8",
+                "block_ticks", "fluid_ticks", "ab", "a"
+        };
+
+        final ByteArrayOutputStream raw = new ByteArrayOutputStream();
+        try (final DataOutputStream out = new DataOutputStream(raw)) {
+            // repeat so that strings land at different positions relative to the read buffer end
+            for (int i = 0; i < 64; ++i) {
+                for (final String str : strings) {
+                    out.writeUTF(str);
+                }
+                out.writeByte(i);
+            }
+        }
+
+        // simulates a source which fails when reading past the end of the data, such as an InflaterInputStream
+        // over a truncated zlib stream
+        final InputStream source = new InputStream() {
+            private final ByteArrayInputStream wrap = new ByteArrayInputStream(raw.toByteArray());
+
+            @Override
+            public int read() throws IOException {
+                final byte[] b = new byte[1];
+                return this.read(b, 0, 1) == -1 ? -1 : (b[0] & 0xFF);
+            }
+
+            @Override
+            public int read(final byte[] b, final int off, final int len) throws IOException {
+                if (len != 0 && this.wrap.available() == 0) {
+                    throw new IOException("Read past end of data");
+                }
+                return this.wrap.read(b, off, len);
+            }
+        };
+
+        try (final AbstractBufferInputStream in = new BufferedBufferInputStream(new byte[48], source)) {
+            for (int i = 0; i < 64; ++i) {
+                for (final String str : strings) {
+                    assertEquals(str, in.readUTF());
+                }
+                assertEquals((byte)i, in.readByte());
+            }
+        }
+    }
+
+    @Test
+    public void testStringUTFAtBufferEnd() throws IOException {
+        // the small string read table reads whole longs, which must not go past the end of the buffer
+        // when a string ends at the end of the buffer
+        for (int len = 0; len <= 40; ++len) {
+            final char[] chars = new char[len];
+            Arrays.fill(chars, 'a');
+            final String str = new String(chars);
+
+            final ByteArrayOutputStream raw = new ByteArrayOutputStream();
+            try (final DataOutputStream out = new DataOutputStream(raw)) {
+                out.writeUTF(str);
+            }
+            final byte[] data = raw.toByteArray();
+
+            final Buffer buffer = new Buffer(false, "", data);
+            buffer.setWriterIndex(data.length);
+
+            try (final AbstractBufferInputStream in = new SimpleBufferInputStream(buffer)) {
+                assertEquals(str, in.readUTF());
+                assertTrue(in.isEOF());
+            }
         }
     }
 }

@@ -21,10 +21,10 @@ public final class SmallStringReadTable {
     private final byte[] asciiReadArray = new byte[4*Long.BYTES];
     private static final VarHandle BYTE_ARRAY_AS_LONG = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    private final StringLookup1 lookup1 = new StringLookup1(this.asciiReadArray);
-    private final StringLookup2 lookup2 = new StringLookup2(this.asciiReadArray);
-    private final StringLookup3 lookup3 = new StringLookup3(this.asciiReadArray);
-    private final StringLookup4 lookup4 = new StringLookup4(this.asciiReadArray);
+    final StringLookup1 lookup1 = new StringLookup1(this.asciiReadArray);
+    final StringLookup2 lookup2 = new StringLookup2(this.asciiReadArray);
+    final StringLookup3 lookup3 = new StringLookup3(this.asciiReadArray);
+    final StringLookup4 lookup4 = new StringLookup4(this.asciiReadArray);
 
     private static long getMask(final int bytes) {
         // bytes > 0 && bytes <= 8
@@ -52,7 +52,7 @@ public final class SmallStringReadTable {
         }
     }
 
-    private static final class StringLookup1 {
+    static final class StringLookup1 {
 
         private final byte[] asciiReadArray;
 
@@ -111,7 +111,7 @@ public final class SmallStringReadTable {
         // threshold = 1/4*table
         private int count;
 
-        private String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
+        String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
             final long v1 = in.readBuffer.readLongLE(start) & getMask(strLen - 0*Long.BYTES);
 
             final StringLookupEntry1 work = this.work;
@@ -176,7 +176,7 @@ public final class SmallStringReadTable {
         }
     }
 
-    private static final class StringLookup2 {
+    static final class StringLookup2 {
 
         private final byte[] asciiReadArray;
 
@@ -237,7 +237,7 @@ public final class SmallStringReadTable {
         // threshold = 1/4*table
         private int count;
 
-        private String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
+        String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
             final long v1 = in.readBuffer.readLongLE(start);
             final long v2 = in.readBuffer.readLongLE(start + Long.BYTES) & getMask(strLen - 1*Long.BYTES);
 
@@ -305,7 +305,7 @@ public final class SmallStringReadTable {
         }
     }
 
-    private static final class StringLookup3 {
+    static final class StringLookup3 {
 
         private final byte[] asciiReadArray;
 
@@ -369,7 +369,7 @@ public final class SmallStringReadTable {
         // threshold = 1/4*table
         private int count;
 
-        private String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
+        String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
             final long v1 = in.readBuffer.readLongLE(start);
             final long v2 = in.readBuffer.readLongLE(start + Long.BYTES);
             final long v3 = in.readBuffer.readLongLE(start + 2*Long.BYTES) & getMask(strLen - 2*Long.BYTES);
@@ -439,7 +439,7 @@ public final class SmallStringReadTable {
         }
     }
 
-    private static final class StringLookup4 {
+    static final class StringLookup4 {
 
         private final byte[] asciiReadArray;
 
@@ -505,7 +505,7 @@ public final class SmallStringReadTable {
         // threshold = 1/4*table
         private int count;
 
-        private String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
+        String lookup(final AbstractBufferInputStream in, final long start, final int strLen) throws IOException {
             final long v1 = in.readBuffer.readLongLE(start);
             final long v2 = in.readBuffer.readLongLE(start + Long.BYTES);
             final long v3 = in.readBuffer.readLongLE(start + 2*Long.BYTES);

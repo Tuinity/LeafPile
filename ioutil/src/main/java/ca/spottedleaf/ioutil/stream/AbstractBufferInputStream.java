@@ -243,18 +243,15 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
 
     @Override
     public final String readUTF() throws IOException {
-        final boolean ensureSmall = this.readBuffer.getMaxCapacity() > (SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES) && this.tryEnsure(SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES);
-        if (!ensureSmall) {
-            this.ensureReadable(2L);
+        if (this.readBuffer.getReadableBytes() < (SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES)) {
+            return this.readUTFNearEnd();
         }
+        // any small string is already fully buffered
         final long readerIdx = this.readBuffer.getReaderIndex();
         final int len = (int)this.readBuffer.readCharBE(readerIdx);
         if (len == 0) {
             this.readBuffer.skipRead(Short.BYTES);
             return "";
-        }
-        if (!ensureSmall) {
-            return this.readUTFUncached();
         }
         if (len == 1) {
             final byte v = this.readBuffer.readByte(readerIdx + Short.BYTES);
@@ -265,11 +262,65 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
             }
             throw new UTFDataFormatException("Malformed input with len = 1, expected at least 1 more byte");
         }
-        if (len <= SmallStringReadTable.SMALL_THRESHOLD) {
-            return (this.utfReadTable == null ? this.utfReadTable = new SmallStringReadTable() : this.utfReadTable)
-                    .read(this, readerIdx + 2L, len);
+        if (len > SmallStringReadTable.SMALL_THRESHOLD) {
+            return this.readUTFUncached();
         }
-        return this.readUTFUncached();
+        // dispatch to the lookups directly rather than through SmallStringReadTable#read: once compiled, read
+        // is typically too large to be inlined, so whether callers inline it depends on JIT compilation order
+        final SmallStringReadTable table = this.utfReadTable == null ? this.utfReadTable = new SmallStringReadTable() : this.utfReadTable;
+        final long start = readerIdx + 2L;
+        switch ((len + (Long.BYTES - 1)) >>> 3) {
+            case 1: {
+                return table.lookup1.lookup(this, start, len);
+            }
+            case 2: {
+                return table.lookup2.lookup(this, start, len);
+            }
+            case 3: {
+                return table.lookup3.lookup(this, start, len);
+            }
+            default: {
+                return table.lookup4.lookup(this, start, len);
+            }
+        }
+    }
+
+    // note: only request the bytes the string occupies, as reading further may fail or block on the
+    //       wrapped source (e.g. a truncated compressed stream or a socket) even though the string is complete
+    private String readUTFNearEnd() throws IOException {
+        this.ensureReadable(2L);
+        final int len = (int)this.readBuffer.readCharBE(this.readBuffer.getReaderIndex());
+        if (len == 0) {
+            this.readBuffer.skipRead(Short.BYTES);
+            return "";
+        }
+        if (len > SmallStringReadTable.SMALL_THRESHOLD || this.readBuffer.getMaxCapacity() <= (SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES)) {
+            return this.readUTFUncached();
+        }
+        this.ensureReadable(Short.BYTES + (long)len);
+        // the fill may have shifted the reader index
+        final long readerIdx = this.readBuffer.getReaderIndex();
+        // the read table reads whole longs, so the string rounded up to a multiple of Long.BYTES must fit in the buffer
+        // (bytes past the readable bytes are masked off)
+        if (len != 1 && readerIdx + Short.BYTES + (long)((len + (Long.BYTES - 1)) & -Long.BYTES) > this.readBuffer.getCurrentCapacity()) {
+            return this.readUTFUncached();
+        }
+        return this.readSmallUTF(readerIdx, len);
+    }
+
+    // requires 0 < len <= SMALL_THRESHOLD, and the string to be buffered
+    private String readSmallUTF(final long readerIdx, final int len) throws IOException {
+        if (len == 1) {
+            final byte v = this.readBuffer.readByte(readerIdx + Short.BYTES);
+            final String ret = ASCII_TABLE[(int)(v & 0xFF)];
+            this.readBuffer.skipRead(Short.BYTES + 1L);
+            if (ret != null) {
+                return ret;
+            }
+            throw new UTFDataFormatException("Malformed input with len = 1, expected at least 1 more byte");
+        }
+        return (this.utfReadTable == null ? this.utfReadTable = new SmallStringReadTable() : this.utfReadTable)
+                .read(this, readerIdx + 2L, len);
     }
 
     // specified by us
