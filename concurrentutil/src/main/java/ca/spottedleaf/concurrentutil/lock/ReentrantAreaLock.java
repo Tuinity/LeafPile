@@ -212,7 +212,9 @@ public final class ReentrantAreaLock {
                 }
             }
 
-            if (park != null) {
+            final boolean incorrectUsage = (alreadyOwned && !allOwned);
+
+            if (park != null || incorrectUsage) {
                 // failure to acquire: added but another thread holds a part of the area
                 // undo additions
                 for (int i = 0; i < areaAffectedLen; ++i) {
@@ -227,11 +229,10 @@ public final class ReentrantAreaLock {
 
                 // Resume all contenders
                 ret.notifier.notifyThreads();
-            }
 
-            if (alreadyOwned && !allOwned) {
-                ret.notifier.notifyThreads();
-                throw new IllegalStateException("Improper lock usage: Should never acquire intersecting areas");
+                if (incorrectUsage) {
+                    throw new IllegalStateException("Improper lock usage: Should never acquire intersecting areas");
+                }
             }
 
             if (park == null) {
