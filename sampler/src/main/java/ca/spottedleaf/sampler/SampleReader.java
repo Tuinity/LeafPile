@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class SampleReader implements Closeable {
     private static final String BUFFER_KEY = "sampler:reader";
@@ -36,7 +37,7 @@ public final class SampleReader implements Closeable {
             .append(DateTimeFormatter.ofPattern("HH.mm.ss"))
             .appendOptional(DateTimeFormatter.ofPattern(".SSS"))
             .appendOptional(DateTimeFormatter.ofPattern(" z"))
-            .toFormatter();
+            .toFormatter(Locale.ROOT);
 
     private final AbstractBufferInputStream input;
     private final List<BufferReference> buffers = new ArrayList<>();
