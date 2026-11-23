@@ -104,7 +104,7 @@ public final class TypeAdapterRegistry {
 
     /**
      * Sorts {@link Map} and {@link LinkedHashMap} types by their {@link String} keys.
-     * @param caseSensitive Whether to use case-insensitive ordering
+     * @param caseSensitive Whether to use case-sensitive ordering
      * @return {@code this}
      * @see String#compareTo(String)
      * @see String#compareToIgnoreCase(String)
